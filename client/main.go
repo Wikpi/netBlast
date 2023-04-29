@@ -12,6 +12,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
+// Colors for usernames
 var colors = []string{"#000000", "#FFFFFF", "#800080", "#00FF00", "#FFA500", "#FF0000", "#FF00FF", "#00FFFF", "#000080"}
 
 type model struct {
@@ -22,6 +23,7 @@ type model struct {
 	messages  []message
 }
 
+// Structure of individual user message
 type message struct {
 	username    string
 	message     string
@@ -37,6 +39,7 @@ func main() {
 	}
 }
 
+// Intial model
 func createModel() *model {
 	ti := textinput.New()
 	ti.Placeholder = "Your text"
@@ -59,47 +62,76 @@ func (m model) Init() tea.Cmd {
 func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 
-	switch key := msg.(type) {
-	case tea.KeyMsg:
-		switch key.Type {
-		case tea.KeyCtrlC, tea.KeyEsc:
-			return m, tea.Quit
-		case tea.KeyEnter:
-			value := m.input.Value()
+	checkMessageType(m, msg, &cmd)
 
-			if value == "" {
-				return m, nil
-			}
-
-			if m.name == "" {
-				m.name = value
-			} else {
-				message := message{
-					username:    m.name,
-					message:     value,
-					messageTime: time.Now(),
-				}
-
-				m.messages = append(m.messages, message)
-			}
-
-			m.input.SetValue("")
-
-			return m, nil
-		}
-	}
+	// Updates input
 	m.input, cmd = m.input.Update(msg)
 
 	return m, cmd
 }
 
+// Checks what input was entered
+func checkMessageType(m *model, msg tea.Msg, cmd *tea.Cmd) {
+	switch key := msg.(type) {
+	case tea.KeyMsg:
+		switch key.Type {
+		case tea.KeyCtrlC, tea.KeyEsc:
+			*cmd = tea.Quit
+		case tea.KeyEnter:
+			handleMessage(m, cmd)
+
+			*cmd = nil
+		}
+	}
+}
+
+// Sets entered message into respective field
+func handleMessage(m *model, cmd *tea.Cmd) {
+	value := m.input.Value()
+	if value == "" {
+		*cmd = nil
+	}
+
+	// Registers user if it hasnt already
+	if m.name == "" {
+		m.name = value
+	} else {
+		message := message{
+			username:    m.name,
+			message:     value,
+			messageTime: time.Now(),
+		}
+
+		m.messages = append(m.messages, message)
+	}
+
+	// Resets input field
+	m.input.SetValue("")
+}
+
 func (m model) View() string {
 	var s strings.Builder
+
+	displayUserMessages(m, &s)
+
+	// Listens for input
+	s.WriteString(m.input.View())
+	s.WriteString("\nPress Esc to quit.\n")
+
+	return s.String()
+}
+
+// Displays messages
+func displayUserMessages(m model, s *strings.Builder) {
+	// Username color styler
 	style := lipgloss.NewStyle().Foreground(lipgloss.Color(m.userColor))
+
 	if m.name == "" {
 		s.WriteString("Name: \n")
 	} else {
+		// Displays previous messages
 		for _, m := range m.messages {
+			// Displays message time (dd/mm/yyyy) if it was sent on a different day
 			if m.messageTime.Day() < time.Now().Day() {
 				s.WriteString(m.messageTime.Format("01-02-2006") + "\n\n")
 			}
@@ -110,9 +142,4 @@ func (m model) View() string {
 
 		s.WriteString("Message: \n")
 	}
-
-	s.WriteString(m.input.View())
-	s.WriteString("\nPress Esc to quit.\n")
-
-	return s.String()
 }
