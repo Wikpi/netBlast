@@ -1,89 +1,103 @@
 package main
 
 import (
-	"fmt"
-	"os"
+	"log"
+	"strings"
 
+	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 )
 
 type model struct {
-	choices  []string
+	input    textinput.Model
 	cursor   int
-	selected map[int]struct{}
+	name     string
+	messages []message
+}
+
+type message struct {
+	username string
+	message  string
 }
 
 func main() {
-	p := tea.NewProgram(initialModel())
+	p := tea.NewProgram(createModel())
+
 	if _, err := p.Run(); err != nil {
-		fmt.Printf("Alas, there's been an error: %v", err)
-		os.Exit(1)
+		log.Fatal("Err: ", err)
 	}
 }
 
-func initialModel() model {
-	return model{
-		choices:  []string{"Buy carrots", "Buy celery", "Buy kohlrabi"},
-		selected: make(map[int]struct{}),
+func createModel() *model {
+	ti := textinput.New()
+	ti.Placeholder = "Your text"
+	ti.CharLimit = 256
+	// inp.CursorStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#FFF"))
+	ti.Width = 30
+
+	ti.Focus()
+
+	return &model{
+		input: ti,
+		//randomColor: colors[rand.Intn(len(colors))],
 	}
 }
 
 func (m model) Init() tea.Cmd {
-	return nil
+	return textinput.Blink
 }
 
-func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	switch msg := msg.(type) {
+func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	var cmd tea.Cmd
 
+	switch key := msg.(type) {
 	case tea.KeyMsg:
-
-		switch msg.String() {
-
-		case "ctrl+c", "q":
+		switch key.Type {
+		case tea.KeyCtrlC, tea.KeyEsc:
 			return m, tea.Quit
+		case tea.KeyEnter:
+			value := m.input.Value()
 
-		case "up", "k":
-			if m.cursor > 0 {
-				m.cursor--
+			if value == "" {
+				return m, nil
 			}
 
-		case "down", "j":
-			if m.cursor < len(m.choices)-1 {
-				m.cursor++
-			}
-
-		case "enter", " ":
-			_, ok := m.selected[m.cursor]
-			if ok {
-				delete(m.selected, m.cursor)
+			if m.name == "" {
+				m.name = value
 			} else {
-				m.selected[m.cursor] = struct{}{}
+				message := message{
+					username: m.name,
+					message:  value,
+				}
+
+				m.messages = append(m.messages, message)
 			}
+
+			m.input.SetValue("")
+
+			return m, nil
 		}
 	}
+	m.input, cmd = m.input.Update(msg)
 
-	return m, nil
+	return m, cmd
 }
 
 func (m model) View() string {
-	s := "What should we buy at the market?\n\n"
+	var s strings.Builder
 
-	for i, choice := range m.choices {
-
-		cursor := " "
-		if m.cursor == i {
-			cursor = ">"
+	if m.name == "" {
+		s.WriteString("Name: \n")
+	} else {
+		for _, m := range m.messages {
+			s.WriteString(m.username + ": " + m.message + "\n")
 		}
 
-		checked := " "
-		if _, ok := m.selected[i]; ok {
-			checked = "x"
-		}
-
-		s += fmt.Sprintf("%s [%s] %s\n", cursor, checked, choice)
+		s.WriteString("Message: \n")
 	}
 
-	s += "\nPress q to quit.\n"
+	s.WriteString(m.input.View())
+	s.WriteString("\nPress Esc to quit.\n")
 
-	return s
+	return s.String()
 }
