@@ -2,25 +2,34 @@ package main
 
 import (
 	"log"
+	"math/rand"
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 )
 
+var colors = []string{"#000000", "#FFFFFF", "#800080", "#00FF00", "#FFA500", "#FF0000", "#FF00FF", "#00FFFF", "#000080"}
+
 type model struct {
-	input    textinput.Model
-	cursor   int
-	name     string
-	messages []message
+	input     textinput.Model
+	cursor    int
+	name      string
+	userColor string
+	messages  []message
 }
 
 type message struct {
-	username string
-	message  string
+	username    string
+	message     string
+	messageTime time.Time
 }
 
 func main() {
+	rand.Seed(time.Now().UnixNano())
 	p := tea.NewProgram(createModel())
 
 	if _, err := p.Run(); err != nil {
@@ -32,14 +41,14 @@ func createModel() *model {
 	ti := textinput.New()
 	ti.Placeholder = "Your text"
 	ti.CharLimit = 256
-	// inp.CursorStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#FFF"))
+	ti.CursorStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#FFF"))
 	ti.Width = 30
 
 	ti.Focus()
 
 	return &model{
-		input: ti,
-		//randomColor: colors[rand.Intn(len(colors))],
+		input:     ti,
+		userColor: colors[rand.Intn(len(colors))],
 	}
 }
 
@@ -66,8 +75,9 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.name = value
 			} else {
 				message := message{
-					username: m.name,
-					message:  value,
+					username:    m.name,
+					message:     value,
+					messageTime: time.Now(),
 				}
 
 				m.messages = append(m.messages, message)
@@ -85,12 +95,17 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m model) View() string {
 	var s strings.Builder
-
+	style := lipgloss.NewStyle().Foreground(lipgloss.Color(m.userColor))
 	if m.name == "" {
 		s.WriteString("Name: \n")
 	} else {
 		for _, m := range m.messages {
-			s.WriteString(m.username + ": " + m.message + "\n")
+			if m.messageTime.Day() < time.Now().Day() {
+				s.WriteString(m.messageTime.Format("01-02-2006") + "\n\n")
+			}
+
+			s.WriteString(strconv.Itoa(m.messageTime.Hour()) + ":" + strconv.Itoa(m.messageTime.Minute()) + " ")
+			s.WriteString(style.Render(m.username) + ": " + m.message + "\n")
 		}
 
 		s.WriteString("Message: \n")
