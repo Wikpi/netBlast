@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"io/ioutil"
 	"log"
@@ -14,13 +15,20 @@ import (
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"nhooyr.io/websocket"
+	"nhooyr.io/websocket/wsjson"
 )
 
 // Colors for usernames
 var colors = []string{"#000000", "#FFFFFF", "#800080", "#00FF00", "#FFA500", "#FF0000", "#FF00FF", "#00FFFF", "#000080"}
 
+// Server url and port
+const reqURL = "localhost:8080"
+
 type model struct {
 	input     textinput.Model
+	conn      *websocket.Conn
+	ctx       context.Context
 	cursor    int
 	name      string
 	userColor string
@@ -30,9 +38,9 @@ type model struct {
 
 // Structure of individual user message
 type message struct {
-	Username    string
-	Message     string
-	MessageTime time.Time
+	Username    string    `json:"username"`
+	Message     string    `json:"message"`
+	MessageTime time.Time `json:"messageTime"`
 }
 
 func main() {
@@ -54,9 +62,13 @@ func createModel() *model {
 
 	ti.Focus()
 
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+	defer cancel()
+
 	return &model{
 		input:     ti,
 		userColor: colors[rand.Intn(len(colors))],
+		ctx:       ctx,
 	}
 }
 
@@ -72,13 +84,17 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		switch key.Type {
 		case tea.KeyCtrlC, tea.KeyEsc:
+			m.conn.Close(websocket.StatusNormalClosure, "")
 			return m, tea.Quit
 		case tea.KeyEnter:
-			handleMessage(m)
+			m.handleMessage()
 
 			return m, nil
 		}
 	}
+	// if m.name != "" {
+	// 	go m.addNewMessages()
+	// }
 
 	// Updates input
 	m.input, cmd = m.input.Update(msg)
@@ -86,44 +102,47 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, cmd
 }
 
+// Append messages, so they could be shown to the user
+func (m *model) addNewMessages() {
+	for {
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
+		defer cancel()
+
+		var nMessage struct {
+			Name        string
+			Message     string
+			MessageTime time.Time
+		}
+
+		err := wsjson.Read(ctx, m.conn, &nMessage)
+		checkError("Client/add: couldnt read body: ", err)
+
+		msg := message{
+			Username:    nMessage.Name,
+			Message:     nMessage.Message,
+			MessageTime: nMessage.MessageTime,
+		}
+
+		m.messages = append(m.messages, msg)
+	}
+}
+
+// Checks if there is an error and exist
+func checkError(errMsg string, err error) {
+	if err != nil {
+		log.Fatal(errMsg, err)
+	}
+}
+
 // Sets entered message into respective field
-func handleMessage(m *model) {
+func (m *model) handleMessage() {
 	value := m.input.Value()
 	if value == "" {
 		return
 	}
 
-	// Registers user if it hasnt already
 	if m.name == "" {
-		data := value
-		jData, err := json.Marshal(data)
-		if err != nil {
-			log.Fatal("Client/register: couldnt parse to json: ", err)
-		}
-		reqURL := "http://localhost:8080/register"
-
-		req, err := http.NewRequest(http.MethodPost, reqURL, bytes.NewBuffer(jData))
-		if err != nil {
-			log.Fatal("Client/register: couldnt create request: ", err)
-		}
-
-		res, err := http.DefaultClient.Do(req)
-		if err != nil {
-			log.Fatal("Client/register: couldnt send an http request: ", err)
-		}
-
-		resBody, err := ioutil.ReadAll(res.Body)
-		if err != nil {
-			log.Fatal("Client/register: couldnt read response body: ", err)
-		}
-		if res.StatusCode == http.StatusAccepted {
-			m.name = value
-		} else {
-			err := json.Unmarshal(resBody, &m.err)
-			if err != nil {
-				log.Fatal("Client/register: couldnt parse json: ", err)
-			}
-		}
+		m.registerUser(value)
 	} else {
 		message := message{
 			Username:    m.name,
@@ -131,11 +150,49 @@ func handleMessage(m *model) {
 			MessageTime: time.Now(),
 		}
 
-		m.messages = append(m.messages, message)
+		ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+		defer cancel()
+
+		err := wsjson.Write(ctx, m.conn, message)
+		checkError("Client/message: couldnt send message: ", err)
 	}
 
 	// Resets input field
 	m.input.SetValue("")
+}
+
+// Registers user if it hasnt already
+func (m *model) registerUser(value string) {
+	data := struct {
+		Name string `json:"name"`
+	}{Name: value}
+
+	jData, err := json.Marshal(data)
+	checkError("Client/register: couldnt parse to json: ", err)
+
+	req, err := http.NewRequest(http.MethodPost, "http://"+reqURL+"/register", bytes.NewBuffer(jData))
+	checkError("Client/register: couldnt create request: ", err)
+
+	res, err := http.DefaultClient.Do(req)
+	checkError("Client/register: couldnt send an http request: ", err)
+
+	if res.StatusCode == http.StatusAccepted {
+		m.name = value
+
+		ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+		defer cancel()
+
+		c, _, err := websocket.Dial(ctx, "ws://"+reqURL+"/message", nil)
+		checkError("Client/register: couldnt connect websocket: ", err)
+		m.conn = c
+
+	} else {
+		resBody, err := ioutil.ReadAll(res.Body)
+		checkError("Client/register: couldnt read response body: ", err)
+
+		err = json.Unmarshal(resBody, &m.err)
+		checkError("Client/register: couldnt parse json: ", err)
+	}
 }
 
 func (m model) View() string {
