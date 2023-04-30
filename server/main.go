@@ -1,11 +1,13 @@
 package main
 
 import (
+	"encoding/json"
 	"io"
 	"io/ioutil"
 	"log"
 	"net/http"
 	"time"
+	"unicode/utf8"
 )
 
 type info struct {
@@ -30,17 +32,31 @@ func main() {
 			log.Fatal("Server/register: Could not read body: ", err)
 		}
 		name := string(body)
+		length := utf8.RuneCountInString(name) - 2
+		errMsg := ""
+		statusCode := http.StatusNoContent
 
-		if _, ok := users[name]; ok {
-			io.WriteString(w, "Name already exists")
-		} else if len(name) < 2 {
-			io.WriteString(w, "Name too short")
-		} else if len(name) > 10 {
-			io.WriteString(w, "name too long")
-		} else {
+		if length < 3 {
+			errMsg = "Name too short. "
+			statusCode = http.StatusNotAcceptable
+		} else if length > 10 {
+			errMsg = "Name too long. "
+			statusCode = http.StatusNotAcceptable
+		} else if _, ok := users[name]; !ok {
 			users[name] = struct{}{}
-			io.WriteString(w, "Registered! Hello ")
-			io.WriteString(w, name)
+			statusCode = http.StatusAccepted
+		} else {
+			errMsg = "Name already exists. "
+			statusCode = http.StatusNotAcceptable
+		}
+
+		w.WriteHeader(statusCode)
+		if errMsg != "" {
+			jErr, err := json.Marshal(errMsg)
+			if err != nil {
+				log.Fatal("Server/register: coudlnt parse name: ", err)
+			}
+			w.Write(jErr)
 		}
 	})
 	mux.HandleFunc("/message", func(w http.ResponseWriter, r *http.Request) {
