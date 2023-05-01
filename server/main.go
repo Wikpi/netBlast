@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"os"
 	"time"
 	"unicode/utf8"
 
@@ -14,101 +15,145 @@ import (
 	"nhooyr.io/websocket/wsjson"
 )
 
-type info struct {
-	users    []string
+type serverModel struct {
+	//users    []string // For database
 	messages []message
 }
 
 type message struct {
-	username    string
-	message     string
-	messageTime time.Time
+	Username    string    `json:"username"`
+	Message     string    `json:"message"`
+	MessageTime time.Time `json:"messageTime"`
+	Color       string    `json:"color"`
 }
 
 func main() {
 	mux := http.NewServeMux()
 
-	users := make(map[string]struct{})
+	// Stores usernames and connections // Potentially use Database in the future?
+	users := make(map[string]string)
 	connections := make(map[*websocket.Conn]string)
 
+	var server serverModel
+
+	// Registers user and establishes a connection
 	mux.HandleFunc("/register", func(w http.ResponseWriter, r *http.Request) {
 		body, err := ioutil.ReadAll(r.Body)
-		checkError("Server/register: Could not read body: ", err)
+		handleError("Server/register: Could not read body: ", err, 1)
 
 		name := struct {
 			Name string
 		}{}
 
 		err = json.Unmarshal(body, &name)
-		checkError("Server/register: could not parse body: ", err)
+		handleError("Server/register: could not parse body: ", err, 1)
 
-		length := utf8.RuneCountInString(name.Name)
-		errMsg := ""
-		statusCode := http.StatusNoContent
+		errMsg, statusCode := checkName(name.Name, users)
 
-		if length < 3 {
-			errMsg = "Name too short. "
-			statusCode = http.StatusNotAcceptable
-		} else if length > 10 {
-			errMsg = "Name too long. "
-			statusCode = http.StatusNotAcceptable
-		} else if _, ok := users[name.Name]; !ok {
-			statusCode = http.StatusAccepted
-
-			users[name.Name] = struct{}{}
-		} else {
-			errMsg = "Name already exists. "
-			statusCode = http.StatusNotAcceptable
+		if statusCode == http.StatusAccepted {
+			users[name.Name] = ""
 		}
 
 		w.WriteHeader(statusCode)
 		if errMsg != "" {
 			jErr, err := json.Marshal(errMsg)
-			checkError("Server/register: coudlnt parse name: ", err)
+			handleError("Server/register: coudlnt parse name: ", err, 1)
 			w.Write(jErr)
 		}
 	})
+	// Receives and handles user messages
 	mux.HandleFunc("/message", func(w http.ResponseWriter, r *http.Request) {
 		c, err := websocket.Accept(w, r, nil)
-		checkError("Server/message: couldnt upgrade connection: ", err)
+		handleError("Server/message: couldnt upgrade connection: ", err, 1)
 
 		defer c.Close(websocket.StatusInternalError, "")
 
 		connections[c] = ""
-		fmt.Println(connections, " ", users)
 
-		// ctx, cancel := context.WithTimeout(r.Context(), time.Second*10)
-		// defer cancel()
-
-		for {
-			message := struct {
-				Username    string    `json:"username"`
-				Message     string    `json:"message"`
-				MessageTime time.Time `json:"messageTime"`
-				Color       string    `json:"color"`
-			}{}
-
-			err = wsjson.Read(context.Background(), c, &message)
-			if err != nil {
-				delete(connections, c)
-				return
-			}
-			fmt.Println(message)
-			for ic := range connections {
-
-				err = wsjson.Write(context.Background(), ic, message)
-				checkError("Server/message: couldnt write: ", err)
-			}
-		}
+		server.readMessage(&connections, c)
 	})
 
 	err := http.ListenAndServe(":8080", mux)
-	checkError("Server: error: ", err)
+	handleError("Server: error: ", err)
 }
 
-// Checks if there is an error and exits program
-func checkError(errMsg string, err error) {
-	if err != nil {
-		log.Fatal(errMsg, err)
+// Validates user name
+func checkName(name string, users map[string]string) (string, int) {
+	statusCode := http.StatusNoContent
+	errMsg := ""
+
+	if utf8.RuneCountInString(name) < 3 {
+		errMsg = "Name too short. "
+		statusCode = http.StatusNotAcceptable
+	} else if utf8.RuneCountInString(name) > 10 {
+		errMsg = "Name too long. "
+		statusCode = http.StatusNotAcceptable
+	} else if _, ok := users[name]; !ok {
+		statusCode = http.StatusAccepted
+	} else {
+		errMsg = "Name already exists. "
+		statusCode = http.StatusNotAcceptable
+	}
+
+	return errMsg, statusCode
+}
+
+// Read user sent message
+func (sm *serverModel) readMessage(connections *map[*websocket.Conn]string, c *websocket.Conn) {
+	for {
+		msg := struct {
+			Username    string
+			Message     string
+			MessageTime time.Time
+			Color       string
+		}{}
+
+		err := wsjson.Read(context.Background(), c, &msg)
+		if err != nil {
+			delete(*connections, c)
+			return
+		}
+
+		message := message{
+			Username:    msg.Username,
+			Message:     msg.Message,
+			MessageTime: msg.MessageTime,
+			Color:       msg.Color,
+		}
+		sm.messages = append(sm.messages, message)
+
+		writeToAll(*connections, message)
+	}
+}
+
+// Writes user message to all other connections
+func writeToAll(connections map[*websocket.Conn]string, message message) {
+	for ic := range connections {
+		err := wsjson.Write(context.Background(), ic, message)
+		handleError("Server/message: couldnt write: ", err, 1)
+	}
+}
+
+// Handles incoming error
+func handleError(errMsg string, pErr error, exc ...int) {
+	if pErr != nil {
+		file, err := os.OpenFile("server/logs.txt", os.O_APPEND|os.O_WRONLY, 0600)
+		if err != nil {
+			fmt.Print(err)
+		}
+		defer file.Close()
+
+		// Writes error to logs file
+		if _, err := file.WriteString(pErr.Error()); err != nil {
+			fmt.Println(err)
+		}
+
+		// Exits program and gives message where error occured
+		switch exc[0] {
+		case 0:
+			log.Fatal(errMsg)
+		case 1:
+			fmt.Println(errMsg)
+		}
 	}
 }

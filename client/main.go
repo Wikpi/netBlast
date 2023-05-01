@@ -4,10 +4,12 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"log"
 	"math/rand"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -75,12 +77,11 @@ func (m model) Init() tea.Cmd {
 func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 
-	// Checks what input was entered
 	switch key := msg.(type) {
 	case tea.KeyMsg:
 		switch key.Type {
 		case tea.KeyCtrlC, tea.KeyEsc:
-			m.conn.Close(websocket.StatusNormalClosure, "")
+			m.conn.Close(websocket.StatusNormalClosure, "Connection Closed")
 			return m, tea.Quit
 		case tea.KeyEnter:
 			m.handleMessage()
@@ -100,21 +101,16 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 // Append messages received from the websocket connection
 func (m *model) addNewMessages() {
-	//wsChan := make(chan string)
-
 	for {
-		// ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
-		// defer cancel()
-
-		var nMessage struct {
+		nMessage := struct {
 			Username    string
 			Message     string
 			MessageTime time.Time
 			Color       string
-		}
+		}{}
 
 		err := wsjson.Read(context.Background(), m.conn, &nMessage)
-		checkError("Client/add: couldnt read body: ", err)
+		handleError("Client/add: couldnt read body.", err)
 
 		msg := message{
 			Username:    nMessage.Username,
@@ -148,32 +144,29 @@ func (m *model) registerUser(value string) {
 	}{Name: value}
 
 	jData, err := json.Marshal(data)
-	checkError("Client/register: couldnt parse to json: ", err)
+	handleError("Client/register: couldnt parse to json.", err)
 
 	req, err := http.NewRequest(http.MethodPost, "http://"+reqURL+"/register", bytes.NewBuffer(jData))
-	checkError("Client/register: couldnt create request: ", err)
+	handleError("Client/register: couldnt create request.", err)
 
 	res, err := http.DefaultClient.Do(req)
-	checkError("Client/register: couldnt send an http request: ", err)
+	handleError("Client/register: couldnt send an http request.", err)
 
 	if res.StatusCode == http.StatusAccepted {
 		m.name = value
 
-		// ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
-		// defer cancel()
-
 		c, _, err := websocket.Dial(context.Background(), "ws://"+reqURL+"/message", nil)
-		checkError("Client/register: couldnt connect websocket: ", err)
+		handleError("Client/register: couldnt connect websocket.", err)
 		m.conn = c
 
 		go m.addNewMessages()
 
 	} else {
 		resBody, err := ioutil.ReadAll(res.Body)
-		checkError("Client/register: couldnt read response body: ", err)
+		handleError("Client/register: couldnt read response body.", err)
 
 		err = json.Unmarshal(resBody, &m.err)
-		checkError("Client/register: couldnt parse json: ", err)
+		handleError("Client/register: couldnt parse json.", err)
 	}
 }
 
@@ -186,11 +179,8 @@ func (m model) writeMessage(value string) {
 		Color:       m.userColor,
 	}
 
-	// ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
-	// defer cancel()
-
 	err := wsjson.Write(context.Background(), m.conn, message)
-	checkError("Client/message: couldnt send message: ", err)
+	handleError("Client/message: couldnt send message.", err)
 }
 
 func (m model) View() string {
@@ -208,11 +198,11 @@ func (m model) View() string {
 // Displays messages
 func (m model) displayUserMessages(s *strings.Builder) {
 	if m.name == "" {
+		// Doesnt let thorugh, if name is invalid
 		if m.err == "" {
 			s.WriteString("Name: \n")
 		} else {
-			s.WriteString(m.err)
-			s.WriteString("Try again: \n")
+			s.WriteString(m.err + "Try again: \n")
 		}
 	} else {
 		// Displays previous messages
@@ -224,18 +214,35 @@ func (m model) displayUserMessages(s *strings.Builder) {
 			if msg.MessageTime.Day() < time.Now().Day() {
 				s.WriteString(msg.MessageTime.Format("01-02-2006") + "\n\n")
 			}
+			msgMin := ""
 
-			s.WriteString(strconv.Itoa(msg.MessageTime.Hour()) + ":" + strconv.Itoa(msg.MessageTime.Minute()) + " ")
-			s.WriteString(style.Render(msg.Username) + ": " + msg.Message + "\n")
+			if msg.MessageTime.Minute() < 10 {
+				msgMin = "0"
+			}
+
+			s.WriteString(strconv.Itoa(msg.MessageTime.Hour()) + ":" + msgMin + strconv.Itoa(msg.MessageTime.Minute()) + " " + style.Render(msg.Username) + ": " + msg.Message + "\n")
 		}
 
-		s.WriteString("Message: \n")
+		s.WriteString("<-------------------------------------> \n Message: \n")
 	}
 }
 
-// Checks if there is an error and exist
-func checkError(errMsg string, err error) {
-	if err != nil {
-		log.Fatal(errMsg, err)
+// Handles incoming error
+func handleError(errMsg string, pErr error) {
+	if pErr != nil {
+		file, err := os.OpenFile("client/logs.txt", os.O_APPEND|os.O_WRONLY, 0600)
+		if err != nil {
+			fmt.Print(err)
+		}
+		defer file.Close()
+
+		// Writes error to logs file
+		if _, err := file.WriteString(pErr.Error()); err != nil {
+			fmt.Println(err)
+		}
+
+		// Exits program and gives message where error occured
+		log.Fatal(errMsg)
 	}
+
 }
