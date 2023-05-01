@@ -1,5 +1,5 @@
 # netBlast - terminal Chat App
-netblast is a simple termincal Chat App written in Go
+netblast is a simple terminal Chat App written in Go
 
 ![image](https://user-images.githubusercontent.com/66695611/235474854-641b0229-f833-4c35-a3be-c7593da87641.png)
 
@@ -10,7 +10,7 @@ While that helps to create a nice and cozy frontend, the [nhooyr/websocket](http
 
 **Server**
 
-The Server side is a simple http server host, which is further upgraded by [nhooyr/websocket](https://github.com/nhooyr/websocket) and helps to enhance the whole expereince
+The Server side is a simple http server host, which is further upgraded by [nhooyr/websocket](https://github.com/nhooyr/websocket), that helps to enhance the whole expereince.
 
 * Huge inspirtaion derived from [tiny](https://github.com/osa1/tiny), a simple terminal IRC client.
 
@@ -26,7 +26,7 @@ The Server side is a simple http server host, which is further upgraded by [nhoo
 # Running / Installation
 Tested on Windows and Linux.
 
-To run simply launch the `server/main.exe` file or run in command line:  
+To run, simply launch the `server/main.exe` file or run in command line:  
 >go run server/main.go
 
 Afterwards clients can join either by running `client/main.exe` or in command line:
