@@ -28,7 +28,6 @@ const reqURL = "localhost:8080"
 type model struct {
 	input     textinput.Model
 	conn      *websocket.Conn
-	ctx       context.Context
 	cursor    int
 	name      string
 	userColor string
@@ -41,6 +40,7 @@ type message struct {
 	Username    string    `json:"username"`
 	Message     string    `json:"message"`
 	MessageTime time.Time `json:"messageTime"`
+	Color       string    `json:"color"`
 }
 
 func main() {
@@ -62,13 +62,9 @@ func createModel() *model {
 
 	ti.Focus()
 
-	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
-	defer cancel()
-
 	return &model{
 		input:     ti,
 		userColor: colors[rand.Intn(len(colors))],
-		ctx:       ctx,
 	}
 }
 
@@ -89,12 +85,12 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case tea.KeyEnter:
 			m.handleMessage()
 
+			// Resets input field
+			m.input.SetValue("")
+
 			return m, nil
 		}
 	}
-	// if m.name != "" {
-	// 	go m.addNewMessages()
-	// }
 
 	// Updates input
 	m.input, cmd = m.input.Update(msg)
@@ -102,39 +98,36 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, cmd
 }
 
-// Append messages, so they could be shown to the user
+// Append messages received from the websocket connection
 func (m *model) addNewMessages() {
+	//wsChan := make(chan string)
+
 	for {
-		ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
-		defer cancel()
+		// ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
+		// defer cancel()
 
 		var nMessage struct {
-			Name        string
+			Username    string
 			Message     string
 			MessageTime time.Time
+			Color       string
 		}
 
-		err := wsjson.Read(ctx, m.conn, &nMessage)
+		err := wsjson.Read(context.Background(), m.conn, &nMessage)
 		checkError("Client/add: couldnt read body: ", err)
 
 		msg := message{
-			Username:    nMessage.Name,
+			Username:    nMessage.Username,
 			Message:     nMessage.Message,
 			MessageTime: nMessage.MessageTime,
+			Color:       nMessage.Color,
 		}
 
 		m.messages = append(m.messages, msg)
 	}
 }
 
-// Checks if there is an error and exist
-func checkError(errMsg string, err error) {
-	if err != nil {
-		log.Fatal(errMsg, err)
-	}
-}
-
-// Sets entered message into respective field
+// Handles user input
 func (m *model) handleMessage() {
 	value := m.input.Value()
 	if value == "" {
@@ -144,24 +137,11 @@ func (m *model) handleMessage() {
 	if m.name == "" {
 		m.registerUser(value)
 	} else {
-		message := message{
-			Username:    m.name,
-			Message:     value,
-			MessageTime: time.Now(),
-		}
-
-		ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
-		defer cancel()
-
-		err := wsjson.Write(ctx, m.conn, message)
-		checkError("Client/message: couldnt send message: ", err)
+		m.writeMessage(value)
 	}
-
-	// Resets input field
-	m.input.SetValue("")
 }
 
-// Registers user if it hasnt already
+// Registers and establishes websocket connection with the server
 func (m *model) registerUser(value string) {
 	data := struct {
 		Name string `json:"name"`
@@ -179,12 +159,14 @@ func (m *model) registerUser(value string) {
 	if res.StatusCode == http.StatusAccepted {
 		m.name = value
 
-		ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
-		defer cancel()
+		// ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+		// defer cancel()
 
-		c, _, err := websocket.Dial(ctx, "ws://"+reqURL+"/message", nil)
+		c, _, err := websocket.Dial(context.Background(), "ws://"+reqURL+"/message", nil)
 		checkError("Client/register: couldnt connect websocket: ", err)
 		m.conn = c
+
+		go m.addNewMessages()
 
 	} else {
 		resBody, err := ioutil.ReadAll(res.Body)
@@ -195,10 +177,26 @@ func (m *model) registerUser(value string) {
 	}
 }
 
+// Writes user message to websocket connection
+func (m model) writeMessage(value string) {
+	message := message{
+		Username:    m.name,
+		Message:     value,
+		MessageTime: time.Now(),
+		Color:       m.userColor,
+	}
+
+	// ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+	// defer cancel()
+
+	err := wsjson.Write(context.Background(), m.conn, message)
+	checkError("Client/message: couldnt send message: ", err)
+}
+
 func (m model) View() string {
 	var s strings.Builder
 
-	displayUserMessages(m, &s)
+	m.displayUserMessages(&s)
 
 	// Listens for input
 	s.WriteString(m.input.View())
@@ -208,10 +206,7 @@ func (m model) View() string {
 }
 
 // Displays messages
-func displayUserMessages(m model, s *strings.Builder) {
-	// Username color styler
-	style := lipgloss.NewStyle().Foreground(lipgloss.Color(m.userColor))
-
+func (m model) displayUserMessages(s *strings.Builder) {
 	if m.name == "" {
 		if m.err == "" {
 			s.WriteString("Name: \n")
@@ -221,16 +216,26 @@ func displayUserMessages(m model, s *strings.Builder) {
 		}
 	} else {
 		// Displays previous messages
-		for _, m := range m.messages {
+		for _, msg := range m.messages {
+			// Username color styler
+			style := lipgloss.NewStyle().Foreground(lipgloss.Color(msg.Color))
+
 			// Displays message time (dd/mm/yyyy) if it was sent on a different day
-			if m.MessageTime.Day() < time.Now().Day() {
-				s.WriteString(m.MessageTime.Format("01-02-2006") + "\n\n")
+			if msg.MessageTime.Day() < time.Now().Day() {
+				s.WriteString(msg.MessageTime.Format("01-02-2006") + "\n\n")
 			}
 
-			s.WriteString(strconv.Itoa(m.MessageTime.Hour()) + ":" + strconv.Itoa(m.MessageTime.Minute()) + " ")
-			s.WriteString(style.Render(m.Username) + ": " + m.Message + "\n")
+			s.WriteString(strconv.Itoa(msg.MessageTime.Hour()) + ":" + strconv.Itoa(msg.MessageTime.Minute()) + " ")
+			s.WriteString(style.Render(msg.Username) + ": " + msg.Message + "\n")
 		}
 
 		s.WriteString("Message: \n")
+	}
+}
+
+// Checks if there is an error and exist
+func checkError(errMsg string, err error) {
+	if err != nil {
+		log.Fatal(errMsg, err)
 	}
 }

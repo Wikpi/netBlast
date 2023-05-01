@@ -29,7 +29,7 @@ func main() {
 	mux := http.NewServeMux()
 
 	users := make(map[string]struct{})
-	connections := make(map[*websocket.Conn]struct{})
+	connections := make(map[*websocket.Conn]string)
 
 	mux.HandleFunc("/register", func(w http.ResponseWriter, r *http.Request) {
 		body, err := ioutil.ReadAll(r.Body)
@@ -74,27 +74,29 @@ func main() {
 
 		defer c.Close(websocket.StatusInternalError, "")
 
-		if _, ok := connections[c]; !ok {
-			connections[c] = struct{}{}
-			fmt.Println(connections, " ", users)
-		}
+		connections[c] = ""
+		fmt.Println(connections, " ", users)
+
+		// ctx, cancel := context.WithTimeout(r.Context(), time.Second*10)
+		// defer cancel()
 
 		for {
 			message := struct {
-				Username    string
-				Message     string
-				MessageTime time.Time
+				Username    string    `json:"username"`
+				Message     string    `json:"message"`
+				MessageTime time.Time `json:"messageTime"`
+				Color       string    `json:"color"`
 			}{}
 
-			ctx, cancel := context.WithTimeout(r.Context(), time.Second*10)
-			defer cancel()
-
-			err = wsjson.Read(ctx, c, &message)
-			checkError("Server/message: couldnt read: ", err)
-
+			err = wsjson.Read(context.Background(), c, &message)
+			if err != nil {
+				delete(connections, c)
+				return
+			}
+			fmt.Println(message)
 			for ic := range connections {
-				err = wsjson.Write(ctx, ic, message)
-				fmt.Println(message)
+
+				err = wsjson.Write(context.Background(), ic, message)
 				checkError("Server/message: couldnt write: ", err)
 			}
 		}
