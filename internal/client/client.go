@@ -14,6 +14,7 @@ import (
 	"strings"
 	"time"
 
+	autolycus "github.com/Wikpi/Autolycus/pkg"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -21,11 +22,11 @@ import (
 	"nhooyr.io/websocket/wsjson"
 )
 
-// Colors for usernames
-var colors = []string{"#33FFCC", "#FFFFFF", "#800080", "#00FF00", "#FFA500", "#FF0000", "#FF00FF", "#00FFFF", "#FF33FC", "DFF51F", "F5991F", "72A3EC", "62B379"}
-
 // Server url and port
 const reqURL = "localhost:8080"
+
+// Scrapped colors
+var colors = []string{}
 
 type model struct {
 	input     textinput.Model
@@ -47,6 +48,12 @@ type message struct {
 
 func main() {
 	rand.Seed(time.Now().UnixNano())
+	scrapeColors := false
+
+	if scrapeColors {
+		useAutolycus()
+	}
+
 	p := tea.NewProgram(createModel())
 
 	if _, err := p.Run(); err != nil {
@@ -66,8 +73,34 @@ func createModel() *model {
 
 	return &model{
 		input:     ti,
-		userColor: colors[rand.Intn(len(colors))],
+		userColor: getColor(),
 	}
+}
+
+// Uses a special go module to scrape libraries of colors from the web *by me... :)*
+func useAutolycus() {
+	// website to scrape
+	url := "https://htmlcolorcodes.com/colors/"
+	// Arguments to scrape (tag, key, value !)
+	arg := []string{"td", "class", "color-table__cell--hex"}
+	// Write path of the txt file
+	path := "./tools/colors/colors.txt"
+
+	doc := autolycus.Initiate(url)
+
+	autolycus.Scrape(&colors, doc, arg)
+
+	autolycus.WriteData(path, colors)
+}
+
+// Picks one random color from the scrapped color list
+func getColor() string {
+	body, err := ioutil.ReadFile("./tools/colors/colors.txt")
+	handleError("Client/autolycus: couldnt open file.", err)
+
+	colors := strings.Split(string(body), ", ")
+
+	return colors[rand.Intn(len(colors))]
 }
 
 func (m model) Init() tea.Cmd {
@@ -230,7 +263,7 @@ func (m model) displayUserMessages(s *strings.Builder) {
 // Handles incoming error
 func handleError(errMsg string, pErr error) {
 	if pErr != nil {
-		file, err := os.OpenFile("client/logs.txt", os.O_APPEND|os.O_WRONLY, 0600)
+		file, err := os.OpenFile("./logs/client/logs.txt", os.O_APPEND|os.O_WRONLY, 0600)
 		if err != nil {
 			fmt.Print(err)
 		}
@@ -244,5 +277,4 @@ func handleError(errMsg string, pErr error) {
 		// Exits program and gives message where error occured
 		log.Fatal(errMsg)
 	}
-
 }

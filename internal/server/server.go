@@ -73,8 +73,8 @@ func main() {
 		server.readMessage(&connections, c)
 	})
 
-	err := http.ListenAndServe(":8080", mux)
-	handleError("Server: error: ", err)
+	err := http.ListenAndServe("localhost:8080", mux)
+	handleError("Server: error: ", err, 0)
 }
 
 // Validates user name
@@ -137,7 +137,7 @@ func writeToAll(connections map[*websocket.Conn]string, message message) {
 // Handles incoming error
 func handleError(errMsg string, pErr error, exc ...int) {
 	if pErr != nil {
-		file, err := os.OpenFile("server/logs.txt", os.O_APPEND|os.O_WRONLY, 0600)
+		file, err := os.OpenFile("./logs/server/logs.txt", os.O_APPEND|os.O_WRONLY, 0600)
 		if err != nil {
 			fmt.Print(err)
 		}
