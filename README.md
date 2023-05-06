@@ -1,7 +1,7 @@
 # netBlast - terminal Chat App
-netblast is a simple terminal Chat App written in Go
+![logo](https://user-images.githubusercontent.com/66695611/236645045-78d58f2b-8483-442e-9f7c-f13d7eb9cbe7.png)
 
-![image](https://user-images.githubusercontent.com/66695611/235474854-641b0229-f833-4c35-a3be-c7593da87641.png)
+netblast is a simple terminal Chat App written in Go
 
 **Client**
 
@@ -14,6 +14,9 @@ Also uses the [Autolycus](https://github.com/Wikpi/Autolycus) module to scrape u
 The Server side is a simple http server host, which is further upgraded by [nhooyr/websocket](https://github.com/nhooyr/websocket), that helps to enhance the whole expereince.
 
 * Huge inspirtaion derived from [tiny](https://github.com/osa1/tiny), a simple terminal IRC client.
+
+#
+![chat](https://user-images.githubusercontent.com/66695611/236644775-e5403f6f-0983-4ef3-a36a-2613732195d5.png)
 
 # Features
 **Clean UI**
