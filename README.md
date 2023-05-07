@@ -1,5 +1,5 @@
 # netBlast - terminal Chat App
-![logo](https://user-images.githubusercontent.com/66695611/236645045-78d58f2b-8483-442e-9f7c-f13d7eb9cbe7.png)
+![logo](https://user-images.githubusercontent.com/66695611/236682936-765b5685-9b16-4b08-91a9-29c0e8bc7cd3.png)
 
 netblast is a simple terminal Chat App written in Go
 
@@ -62,7 +62,7 @@ make client
 
 **Docs** - short documentation of the project.
 
-
+#
 
 ![2023-05-01 18-56-32](https://user-images.githubusercontent.com/66695611/235483409-93815da2-ae86-4116-bdf8-f9f40704745d.gif)
 
