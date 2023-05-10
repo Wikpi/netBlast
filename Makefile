@@ -1,4 +1,4 @@
-bld:
+all:
 	go build -o build/server ./internal/server/server.go
 	go build -o build/client ./internal/client/client.go
 

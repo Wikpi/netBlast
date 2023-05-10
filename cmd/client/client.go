@@ -14,7 +14,6 @@ import (
 	"strings"
 	"time"
 
-	autolycus "github.com/Wikpi/Autolycus/pkg"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -24,9 +23,6 @@ import (
 
 // Server url and port
 const reqURL = "localhost:8080"
-
-// Scrapped colors
-var colors = []string{}
 
 type model struct {
 	input     textinput.Model
@@ -48,11 +44,6 @@ type message struct {
 
 func main() {
 	rand.Seed(time.Now().UnixNano())
-	scrapeColors := false
-
-	if scrapeColors {
-		useAutolycus()
-	}
 
 	p := tea.NewProgram(createModel())
 
@@ -75,22 +66,6 @@ func createModel() *model {
 		input:     ti,
 		userColor: getColor(),
 	}
-}
-
-// Uses a special go module to scrape libraries of colors from the web *by me... :)*
-func useAutolycus() {
-	// website to scrape
-	url := "https://htmlcolorcodes.com/colors/"
-	// Arguments to scrape (tag, key, value !)
-	arg := []string{"td", "class", "color-table__cell--hex"}
-	// Write path of the txt file
-	path := "./tools/colors/colors.txt"
-
-	doc := autolycus.Initiate(url)
-
-	autolycus.Scrape(&colors, doc, arg)
-
-	autolycus.WriteData(path, colors)
 }
 
 // Picks one random color from the scrapped color list
@@ -165,9 +140,9 @@ func (m *model) handleMessage() {
 
 	if m.name == "" {
 		m.registerUser(value)
-	} else {
-		m.writeMessage(value)
+		return
 	}
+	m.writeMessage(value)
 }
 
 // Registers and establishes websocket connection with the server
@@ -193,14 +168,14 @@ func (m *model) registerUser(value string) {
 		m.conn = c
 
 		go m.addNewMessages()
-
-	} else {
-		resBody, err := ioutil.ReadAll(res.Body)
-		handleError("Client/register: couldnt read response body.", err)
-
-		err = json.Unmarshal(resBody, &m.err)
-		handleError("Client/register: couldnt parse json.", err)
+		return
 	}
+
+	resBody, err := ioutil.ReadAll(res.Body)
+	handleError("Client/register: couldnt read response body.", err)
+
+	err = json.Unmarshal(resBody, &m.err)
+	handleError("Client/register: couldnt parse json.", err)
 }
 
 // Writes user message to websocket connection
@@ -234,47 +209,49 @@ func (m model) displayUserMessages(s *strings.Builder) {
 		// Doesnt let thorugh, if name is invalid
 		if m.err == "" {
 			s.WriteString("Name: \n")
-		} else {
-			s.WriteString(m.err + "Try again: \n")
+			return
 		}
-	} else {
-		// Displays previous messages
-		for _, msg := range m.messages {
-			// Username color styler
-			style := lipgloss.NewStyle().Foreground(lipgloss.Color(msg.Color))
-
-			// Displays message time (dd/mm/yyyy) if it was sent on a different day
-			if msg.MessageTime.Day() < time.Now().Day() {
-				s.WriteString(msg.MessageTime.Format("01-02-2006") + "\n\n")
-			}
-			msgMin := ""
-
-			if msg.MessageTime.Minute() < 10 {
-				msgMin = "0"
-			}
-
-			s.WriteString(strconv.Itoa(msg.MessageTime.Hour()) + ":" + msgMin + strconv.Itoa(msg.MessageTime.Minute()) + " " + style.Render(msg.Username) + ": " + msg.Message + "\n")
-		}
-
-		s.WriteString("<-------------------------------------> \n Message: \n")
+		s.WriteString(m.err + "Try again: \n")
+		return
 	}
+	// Displays previous messages
+	for _, msg := range m.messages {
+		// Username color styler
+		style := lipgloss.NewStyle().Foreground(lipgloss.Color(msg.Color))
+
+		// Displays message time (dd/mm/yyyy) if it was sent on a different day
+		if msg.MessageTime.Day() < time.Now().Day() {
+			s.WriteString(msg.MessageTime.Format("01-02-2006") + "\n\n")
+		}
+
+		msgMin := ""
+		if msg.MessageTime.Minute() < 10 {
+			msgMin = "0"
+		}
+
+		s.WriteString(strconv.Itoa(msg.MessageTime.Hour()) + ":" + msgMin + strconv.Itoa(msg.MessageTime.Minute()) + " " + style.Render(msg.Username) + ": " + msg.Message + "\n")
+	}
+
+	s.WriteString("<-------------------------------------> \n Message: \n")
 }
 
 // Handles incoming error
 func handleError(errMsg string, pErr error) {
-	if pErr != nil {
-		file, err := os.OpenFile("./logs/client/logs.txt", os.O_APPEND|os.O_WRONLY, 0600)
-		if err != nil {
-			fmt.Print(err)
-		}
-		defer file.Close()
-
-		// Writes error to logs file
-		if _, err := file.WriteString(pErr.Error()); err != nil {
-			fmt.Println(err)
-		}
-
-		// Exits program and gives message where error occured
-		log.Fatal(errMsg)
+	if pErr == nil {
+		return
 	}
+
+	file, err := os.OpenFile("./logs/client/logs.txt", os.O_APPEND|os.O_WRONLY, 0600)
+	if err != nil {
+		fmt.Print(err)
+	}
+	defer file.Close()
+
+	// Writes error to logs file
+	if _, err := file.WriteString(pErr.Error()); err != nil {
+		fmt.Println(err)
+	}
+
+	// Exits program and gives message where error occured
+	log.Fatal(errMsg)
 }
