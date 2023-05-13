@@ -1,5 +1,5 @@
 # Ignore the executable files
-build
+build/
 
 # Ignore logs
-logs
+logs/

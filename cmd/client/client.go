@@ -23,7 +23,7 @@ import (
 	"nhooyr.io/websocket/wsjson"
 )
 
-// Structure that stores application state
+// Structure that stores the application state
 type model struct {
 	input     textinput.Model
 	conn      *websocket.Conn
@@ -108,7 +108,7 @@ func (m *model) handleMessage() {
 	m.writeNewMessage(value)
 }
 
-// Registers and establishes websocket connection with the server
+// Registers and establishes a websocket connection with the server
 func (m *model) registerNewUser(value string) {
 	data := struct {
 		Name string `json:"name"`
@@ -177,7 +177,7 @@ func (m *model) writeNewMessage(value string) {
 	}
 
 	err := wsjson.Write(context.Background(), m.conn, message)
-	handleError(pkg.ClMessage+pkg.Badwrite, err)
+	handleError(pkg.ClMessage+pkg.BadWrite, err)
 }
 
 // Adds neccessary info to display UI

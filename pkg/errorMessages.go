@@ -8,7 +8,11 @@ var (
 )
 
 // Server side prefixes - error location
-var ()
+var (
+	SvRegister = "Server/Register: "
+	SvMessage  = "Server/Message: "
+	Sv         = "Server: "
+)
 
 // Suffixes - error reason
 var (
@@ -17,6 +21,6 @@ var (
 	BadRes   = "couldnt receive request."
 	BadConn  = "couldnt connect websocket."
 	BadRead  = "couldnt read response body."
-	Badwrite = "couldnt write body."
+	BadWrite = "couldnt write body."
 	BadOpen  = "couldnt open file."
 )

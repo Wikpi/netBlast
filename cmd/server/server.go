@@ -8,98 +8,106 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"sync"
 	"time"
 	"unicode/utf8"
+
+	"netBlast/pkg"
 
 	"nhooyr.io/websocket"
 	"nhooyr.io/websocket/wsjson"
 )
 
-type serverModel struct {
-	//users    []string // For database
-	messages []message
-}
-
-type message struct {
-	Username    string    `json:"username"`
-	Message     string    `json:"message"`
-	MessageTime time.Time `json:"messageTime"`
-	Color       string    `json:"color"`
+// Server struct that holds all the essential info
+type serverInfo struct {
+	messages    []pkg.Message
+	m           sync.Mutex
+	errMsg      string
+	statusCode  int
+	users       map[string]string
+	connections map[*websocket.Conn]string
+	lock        sync.RWMutex
+	mux         *http.ServeMux
 }
 
 func main() {
-	mux := http.NewServeMux()
+	server := &serverInfo{}
 
-	// Stores usernames and connections // Potentially use Database in the future?
-	users := make(map[string]string)
-	connections := make(map[*websocket.Conn]string)
-
-	var server serverModel
+	server.users = make(map[string]string)
+	server.connections = make(map[*websocket.Conn]string)
+	server.mux = http.NewServeMux()
 
 	// Registers user and establishes a connection
-	mux.HandleFunc("/register", func(w http.ResponseWriter, r *http.Request) {
-		body, err := ioutil.ReadAll(r.Body)
-		handleError("Server/register: Could not read body: ", err, 1)
-
-		name := struct {
-			Name string
-		}{}
-
-		err = json.Unmarshal(body, &name)
-		handleError("Server/register: could not parse body: ", err, 1)
-
-		errMsg, statusCode := checkName(name.Name, users)
-
-		if statusCode == http.StatusAccepted {
-			users[name.Name] = ""
-		}
-
-		w.WriteHeader(statusCode)
-		if errMsg != "" {
-			jErr, err := json.Marshal(errMsg)
-			handleError("Server/register: coudlnt parse name: ", err, 1)
-			w.Write(jErr)
-		}
-	})
+	server.mux.HandleFunc("/register", server.registerUser)
 	// Receives and handles user messages
-	mux.HandleFunc("/message", func(w http.ResponseWriter, r *http.Request) {
-		c, err := websocket.Accept(w, r, nil)
-		handleError("Server/message: couldnt upgrade connection: ", err, 1)
+	server.mux.HandleFunc("/message", server.handleRequest)
 
-		defer c.Close(websocket.StatusInternalError, "")
-
-		connections[c] = ""
-
-		server.readMessage(&connections, c)
-	})
-
-	err := http.ListenAndServe("localhost:8080", mux)
-	handleError("Server: error: ", err, 0)
+	err := http.ListenAndServe(pkg.ServerURL, server.mux)
+	handleError(pkg.Sv, err, 0)
 }
 
-// Validates user name
-func checkName(name string, users map[string]string) (string, int) {
-	statusCode := http.StatusNoContent
-	errMsg := ""
+// Registers new users
+func (s *serverInfo) registerUser(w http.ResponseWriter, r *http.Request) {
+	body, err := ioutil.ReadAll(r.Body)
+	handleError(pkg.SvRegister+pkg.BadRead, err, 1)
 
-	if utf8.RuneCountInString(name) < 3 {
-		errMsg = "Name too short. "
-		statusCode = http.StatusNotAcceptable
-	} else if utf8.RuneCountInString(name) > 10 {
-		errMsg = "Name too long. "
-		statusCode = http.StatusNotAcceptable
-	} else if _, ok := users[name]; !ok {
-		statusCode = http.StatusAccepted
-	} else {
-		errMsg = "Name already exists. "
-		statusCode = http.StatusNotAcceptable
+	name := struct {
+		Name string
+	}{}
+
+	err = json.Unmarshal(body, &name)
+	handleError(pkg.SvRegister+pkg.BadParse, err, 1)
+
+	s.lock.Lock()
+	s.checkName(name.Name)
+	s.lock.Unlock()
+
+	if s.statusCode == http.StatusAccepted {
+		s.lock.Lock()
+		s.users[name.Name] = ""
+		s.lock.Unlock()
 	}
 
-	return errMsg, statusCode
+	w.WriteHeader(s.statusCode)
+	if s.errMsg != "" {
+		jErr, err := json.Marshal(s.errMsg)
+		handleError(pkg.SvRegister+pkg.BadParse, err, 1)
+		w.Write(jErr)
+	}
 }
 
-// Read user sent message
-func (sm *serverModel) readMessage(connections *map[*websocket.Conn]string, c *websocket.Conn) {
+// Handle websocket connection
+func (s *serverInfo) handleRequest(w http.ResponseWriter, r *http.Request) {
+	c, err := websocket.Accept(w, r, nil)
+	handleError(pkg.SvMessage+pkg.BadConn, err, 1)
+
+	defer c.Close(websocket.StatusInternalError, "")
+
+	s.lock.Lock()
+	s.connections[c] = ""
+	s.lock.Unlock()
+
+	s.readMessage(c)
+}
+
+// Validates username
+func (s *serverInfo) checkName(name string) {
+	if utf8.RuneCountInString(name) < 3 {
+		s.errMsg = "Name too short. "
+		s.statusCode = http.StatusNotAcceptable
+	} else if utf8.RuneCountInString(name) > 10 {
+		s.errMsg = "Name too long. "
+		s.statusCode = http.StatusNotAcceptable
+	} else if _, ok := s.users[name]; !ok {
+		s.statusCode = http.StatusAccepted
+	} else {
+		s.errMsg = "Name already exists. "
+		s.statusCode = http.StatusNotAcceptable
+	}
+}
+
+// Reads received messages
+func (s *serverInfo) readMessage(c *websocket.Conn) {
 	for {
 		msg := struct {
 			Username    string
@@ -110,50 +118,55 @@ func (sm *serverModel) readMessage(connections *map[*websocket.Conn]string, c *w
 
 		err := wsjson.Read(context.Background(), c, &msg)
 		if err != nil {
-			delete(*connections, c)
+			delete(s.connections, c)
 			return
 		}
 
-		message := message{
+		message := pkg.Message{
 			Username:    msg.Username,
 			Message:     msg.Message,
 			MessageTime: msg.MessageTime,
 			Color:       msg.Color,
 		}
-		sm.messages = append(sm.messages, message)
+		s.lock.Lock()
+		s.messages = append(s.messages, message)
+		s.lock.Unlock()
 
-		writeToAll(*connections, message)
+		s.lock.RLock()
+		s.writeToAll(message)
+		s.lock.RUnlock()
 	}
 }
 
 // Writes user message to all other connections
-func writeToAll(connections map[*websocket.Conn]string, message message) {
-	for ic := range connections {
+func (s *serverInfo) writeToAll(message pkg.Message) {
+	for ic := range s.connections {
 		err := wsjson.Write(context.Background(), ic, message)
-		handleError("Server/message: couldnt write: ", err, 1)
+		handleError(pkg.SvMessage+pkg.BadWrite, err, 1)
 	}
 }
 
 // Handles incoming error
-func handleError(errMsg string, pErr error, exc ...int) {
-	if pErr != nil {
-		file, err := os.OpenFile("./logs/server/logs.txt", os.O_APPEND|os.O_WRONLY, 0600)
-		if err != nil {
-			fmt.Print(err)
-		}
-		defer file.Close()
+func handleError(errMsg string, incomingErr error, exc ...int) {
+	if incomingErr == nil {
+		return
+	}
+	file, err := os.OpenFile(pkg.SvLogs, os.O_APPEND|os.O_WRONLY, 0600)
+	if err != nil {
+		fmt.Print(err)
+	}
+	defer file.Close()
 
-		// Writes error to logs file
-		if _, err := file.WriteString(pErr.Error()); err != nil {
-			fmt.Println(err)
-		}
+	// Writes error to logs file
+	if _, err := file.WriteString(time.Now().Format("2006-01-13 12:60") + " " + incomingErr.Error() + "\n\n"); err != nil {
+		fmt.Println(err)
+	}
 
-		// Exits program and gives message where error occured
-		switch exc[0] {
-		case 0:
-			log.Fatal(errMsg)
-		case 1:
-			fmt.Println(errMsg)
-		}
+	// Exits program and gives message where error occured
+	switch exc[0] {
+	case 0:
+		log.Fatal(errMsg)
+	case 1:
+		fmt.Println(errMsg)
 	}
 }
