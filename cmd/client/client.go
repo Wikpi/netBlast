@@ -10,9 +10,11 @@ import (
 	"math/rand"
 	"net/http"
 	"os"
-	"strconv"
 	"strings"
+	"sync"
 	"time"
+
+	"netBlast/pkg"
 
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
@@ -21,9 +23,7 @@ import (
 	"nhooyr.io/websocket/wsjson"
 )
 
-// Server url and port
-const reqURL = "localhost:8080"
-
+// Structure that stores application state
 type model struct {
 	input     textinput.Model
 	conn      *websocket.Conn
@@ -31,15 +31,9 @@ type model struct {
 	name      string
 	userColor string
 	err       string
-	messages  []message
-}
-
-// Structure of individual user message
-type message struct {
-	Username    string    `json:"username"`
-	Message     string    `json:"message"`
-	MessageTime time.Time `json:"messageTime"`
-	Color       string    `json:"color"`
+	messages  []pkg.Message
+	lock      sync.Mutex
+	UI        strings.Builder
 }
 
 func main() {
@@ -52,36 +46,14 @@ func main() {
 	}
 }
 
-// Intial model
-func createModel() *model {
-	ti := textinput.New()
-	ti.Placeholder = "Your text"
-	ti.CharLimit = 256
-	ti.CursorStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#FFF"))
-	ti.Width = 30
+/* ----------------Main UI Functions---------------- */
 
-	ti.Focus()
-
-	return &model{
-		input:     ti,
-		userColor: getColor(),
-	}
-}
-
-// Picks one random color from the scrapped color list
-func getColor() string {
-	body, err := ioutil.ReadFile("./tools/colors/colors.txt")
-	handleError("Client/autolycus: couldnt open file.", err)
-
-	colors := strings.Split(string(body), ", ")
-
-	return colors[rand.Intn(len(colors))]
-}
-
-func (m model) Init() tea.Cmd {
+// Returns an initial command for the application to run
+func (m *model) Init() tea.Cmd {
 	return textinput.Blink
 }
 
+// Handles incoming events and updates the model accordingly
 func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 
@@ -107,29 +79,20 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, cmd
 }
 
-// Append messages received from the websocket connection
-func (m *model) addNewMessages() {
-	for {
-		nMessage := struct {
-			Username    string
-			Message     string
-			MessageTime time.Time
-			Color       string
-		}{}
+// Renders the UI based on the data in the model
+func (m *model) View() string {
+	//m. UI = ""
 
-		err := wsjson.Read(context.Background(), m.conn, &nMessage)
-		handleError("Client/add: couldnt read body.", err)
+	m.displayUI()
 
-		msg := message{
-			Username:    nMessage.Username,
-			Message:     nMessage.Message,
-			MessageTime: nMessage.MessageTime,
-			Color:       nMessage.Color,
-		}
+	// Listens for input
+	m.UI.WriteString(m.input.View())
+	m.UI.WriteString("\nPress Esc to quit.\n")
 
-		m.messages = append(m.messages, msg)
-	}
+	return m.UI.String()
 }
+
+/* ----------------Additional Functions---------------- */
 
 // Handles user input
 func (m *model) handleMessage() {
@@ -139,14 +102,14 @@ func (m *model) handleMessage() {
 	}
 
 	if m.name == "" {
-		m.registerUser(value)
+		m.registerNewUser(value)
 		return
 	}
-	m.writeMessage(value)
+	m.writeNewMessage(value)
 }
 
 // Registers and establishes websocket connection with the server
-func (m *model) registerUser(value string) {
+func (m *model) registerNewUser(value string) {
 	data := struct {
 		Name string `json:"name"`
 	}{Name: value}
@@ -154,20 +117,20 @@ func (m *model) registerUser(value string) {
 	jData, err := json.Marshal(data)
 	handleError("Client/register: couldnt parse to json.", err)
 
-	req, err := http.NewRequest(http.MethodPost, "http://"+reqURL+"/register", bytes.NewBuffer(jData))
+	req, err := http.NewRequest(http.MethodPost, "http://"+pkg.ServerURL+"/register", bytes.NewBuffer(jData))
 	handleError("Client/register: couldnt create request.", err)
 
 	res, err := http.DefaultClient.Do(req)
-	handleError("Client/register: couldnt send an http request.", err)
+	handleError("Client/register: couldnt receive an http request.", err)
 
 	if res.StatusCode == http.StatusAccepted {
 		m.name = value
 
-		c, _, err := websocket.Dial(context.Background(), "ws://"+reqURL+"/message", nil)
+		c, _, err := websocket.Dial(context.Background(), "ws://"+pkg.ServerURL+"/message", nil)
 		handleError("Client/register: couldnt connect websocket.", err)
 		m.conn = c
 
-		go m.addNewMessages()
+		go m.receiveNewMessages()
 		return
 	}
 
@@ -178,9 +141,33 @@ func (m *model) registerUser(value string) {
 	handleError("Client/register: couldnt parse json.", err)
 }
 
+// Stores messages received from the websocket connection
+func (m *model) receiveNewMessages() {
+	for {
+		message := struct {
+			Username    string
+			Message     string
+			MessageTime time.Time
+			Color       string
+		}{}
+
+		err := wsjson.Read(context.Background(), m.conn, &message)
+		handleError("Client/add: couldnt read body.", err)
+
+		msg := pkg.Message{
+			Username:    message.Username,
+			Message:     message.Message,
+			MessageTime: message.MessageTime,
+			Color:       message.Color,
+		}
+
+		m.messages = append(m.messages, msg)
+	}
+}
+
 // Writes user message to websocket connection
-func (m model) writeMessage(value string) {
-	message := message{
+func (m *model) writeNewMessage(value string) {
+	message := pkg.Message{
 		Username:    m.name,
 		Message:     value,
 		MessageTime: time.Now(),
@@ -191,53 +178,72 @@ func (m model) writeMessage(value string) {
 	handleError("Client/message: couldnt send message.", err)
 }
 
-func (m model) View() string {
-	var s strings.Builder
+// Adds neccessary info to display UI
+func (m *model) displayUI() {
+	m.UI = strings.Builder{}
 
-	m.displayUserMessages(&s)
-
-	// Listens for input
-	s.WriteString(m.input.View())
-	s.WriteString("\nPress Esc to quit.\n")
-
-	return s.String()
-}
-
-// Displays messages
-func (m model) displayUserMessages(s *strings.Builder) {
 	if m.name == "" {
 		// Doesnt let thorugh, if name is invalid
 		if m.err == "" {
-			s.WriteString("Name: \n")
+			m.UI.WriteString("Name: \n")
 			return
 		}
-		s.WriteString(m.err + "Try again: \n")
+		m.UI.WriteString(m.err + "Try again: \n")
 		return
 	}
+	m.displayUserMessages()
+
+	m.UI.WriteString("<-------------------------------------> \n Message: \n")
+}
+
+func (m *model) displayUserMessages() {
+	var currentTime time.Time
+
 	// Displays previous messages
 	for _, msg := range m.messages {
 		// Username color styler
 		style := lipgloss.NewStyle().Foreground(lipgloss.Color(msg.Color))
 
-		// Displays message time (dd/mm/yyyy) if it was sent on a different day
-		if msg.MessageTime.Day() < time.Now().Day() {
-			s.WriteString(msg.MessageTime.Format("01-02-2006") + "\n\n")
+		// Dsiplays new time
+		if currentTime.After(msg.MessageTime) {
+			currentTime = msg.MessageTime
+
+			m.UI.WriteString(currentTime.Format("15:04") + "\n")
 		}
 
-		msgMin := ""
-		if msg.MessageTime.Minute() < 10 {
-			msgMin = "0"
-		}
-
-		s.WriteString(strconv.Itoa(msg.MessageTime.Hour()) + ":" + msgMin + strconv.Itoa(msg.MessageTime.Minute()) + " " + style.Render(msg.Username) + ": " + msg.Message + "\n")
+		m.UI.WriteString(style.Render(msg.Username) + ": " + msg.Message + "\n")
 	}
+}
 
-	s.WriteString("<-------------------------------------> \n Message: \n")
+// Creates the initial model that holds default values
+func createModel() *model {
+	ti := textinput.New()
+	ti.Placeholder = "Your text"
+	ti.CharLimit = 256
+	ti.CursorStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#FFF"))
+	ti.Width = 30
+
+	ti.Focus()
+
+	return &model{
+		input:     ti,
+		userColor: getColor(),
+	}
+}
+
+// Picks one random color from the scrapped color list
+func getColor() string {
+	body, err := ioutil.ReadFile("./tools/scrapper/colors.txt")
+	handleError("Client/autolycus: couldnt open file.", err)
+
+	colors := strings.Split(string(body), ", ")
+
+	return colors[rand.Intn(len(colors))]
 }
 
 // Handles incoming error
-func handleError(errMsg string, pErr error) {
-	if pErr == nil {
+func handleError(errMsg string, incomingErr error) {
+	if incomingErr == nil {
 		return
 	}
 
@@ -248,7 +254,7 @@ func handleError(errMsg string, pErr error) {
 	defer file.Close()
 
 	// Writes error to logs file
-	if _, err := file.WriteString(pErr.Error()); err != nil {
+	if _, err := file.WriteString(time.Now().Format("2006-01-02 15:04") + " " + incomingErr.Error() + "\n\n"); err != nil {
 		fmt.Println(err)
 	}
 
