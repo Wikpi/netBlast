@@ -32,7 +32,7 @@ type model struct {
 	userColor string
 	err       string
 	messages  []pkg.Message
-	lock      sync.Mutex
+	lock      sync.RWMutex
 	UI        strings.Builder
 }
 
@@ -115,19 +115,19 @@ func (m *model) registerNewUser(value string) {
 	}{Name: value}
 
 	jData, err := json.Marshal(data)
-	handleError("Client/register: couldnt parse to json.", err)
+	handleError(pkg.ClRegister+pkg.BadParse, err)
 
 	req, err := http.NewRequest(http.MethodPost, "http://"+pkg.ServerURL+"/register", bytes.NewBuffer(jData))
-	handleError("Client/register: couldnt create request.", err)
+	handleError(pkg.ClRegister+pkg.BadReq, err)
 
 	res, err := http.DefaultClient.Do(req)
-	handleError("Client/register: couldnt receive an http request.", err)
+	handleError(pkg.ClRegister+pkg.BadRes, err)
 
 	if res.StatusCode == http.StatusAccepted {
 		m.name = value
 
 		c, _, err := websocket.Dial(context.Background(), "ws://"+pkg.ServerURL+"/message", nil)
-		handleError("Client/register: couldnt connect websocket.", err)
+		handleError(pkg.ClRegister+pkg.BadConn, err)
 		m.conn = c
 
 		go m.receiveNewMessages()
@@ -135,10 +135,10 @@ func (m *model) registerNewUser(value string) {
 	}
 
 	resBody, err := ioutil.ReadAll(res.Body)
-	handleError("Client/register: couldnt read response body.", err)
+	handleError(pkg.ClRegister+pkg.BadRead, err)
 
 	err = json.Unmarshal(resBody, &m.err)
-	handleError("Client/register: couldnt parse json.", err)
+	handleError(pkg.ClRegister+pkg.BadParse, err)
 }
 
 // Stores messages received from the websocket connection
@@ -152,7 +152,7 @@ func (m *model) receiveNewMessages() {
 		}{}
 
 		err := wsjson.Read(context.Background(), m.conn, &message)
-		handleError("Client/add: couldnt read body.", err)
+		handleError(pkg.ClMessage+pkg.BadRead, err)
 
 		msg := pkg.Message{
 			Username:    message.Username,
@@ -161,7 +161,9 @@ func (m *model) receiveNewMessages() {
 			Color:       message.Color,
 		}
 
+		m.lock.Lock()
 		m.messages = append(m.messages, msg)
+		m.lock.Unlock()
 	}
 }
 
@@ -175,7 +177,7 @@ func (m *model) writeNewMessage(value string) {
 	}
 
 	err := wsjson.Write(context.Background(), m.conn, message)
-	handleError("Client/message: couldnt send message.", err)
+	handleError(pkg.ClMessage+pkg.Badwrite, err)
 }
 
 // Adds neccessary info to display UI
@@ -191,11 +193,16 @@ func (m *model) displayUI() {
 		m.UI.WriteString(m.err + "Try again: \n")
 		return
 	}
+	m.lock.RLock()
+
+	defer m.lock.RUnlock()
+
 	m.displayUserMessages()
 
 	m.UI.WriteString("<-------------------------------------> \n Message: \n")
 }
 
+// Display all user messages
 func (m *model) displayUserMessages() {
 	var currentTime time.Time
 
@@ -233,8 +240,8 @@ func createModel() *model {
 
 // Picks one random color from the scrapped color list
 func getColor() string {
-	body, err := ioutil.ReadFile("./tools/scrapper/colors.txt")
-	handleError("Client/autolycus: couldnt open file.", err)
+	body, err := ioutil.ReadFile(pkg.Scrapper + "/colors.txt")
+	handleError(pkg.Cl+pkg.BadOpen, err)
 
 	colors := strings.Split(string(body), ", ")
 
@@ -247,7 +254,7 @@ func handleError(errMsg string, incomingErr error) {
 		return
 	}
 
-	file, err := os.OpenFile("./logs/client/logs.txt", os.O_APPEND|os.O_WRONLY, 0600)
+	file, err := os.OpenFile(pkg.ClLogs, os.O_APPEND|os.O_WRONLY, 0600)
 	if err != nil {
 		fmt.Print(err)
 	}
