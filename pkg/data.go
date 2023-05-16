@@ -7,7 +7,10 @@ const ServerURL = "localhost:8080"
 const Scrapper = "./tools/scrapper"
 
 // Client log file
-const ClLogs = "./logs/client/logs.txt"
+//const ClLogs = "./logs/client/logs.txt"
 
 // Server log file
-const SvLogs = "./logs/server/logs.txt"
+//const SvLogs = "./logs/server/logs.txt"
+
+// Logs
+const Logs = "./logs/logs"

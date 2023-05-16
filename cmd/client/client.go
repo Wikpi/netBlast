@@ -4,23 +4,21 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"fmt"
 	"io/ioutil"
 	"log"
 	"math/rand"
 	"net/http"
-	"os"
 	"strings"
 	"sync"
 	"time"
 
 	"netBlast/pkg"
+	"netBlast/tools/scrapper"
 
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"nhooyr.io/websocket"
-	"nhooyr.io/websocket/wsjson"
 )
 
 // Structure that stores the application state
@@ -36,7 +34,24 @@ type model struct {
 	UI        strings.Builder
 }
 
-func main() {
+// Creates the initial model that holds default values
+func createModel() *model {
+	ti := textinput.New()
+	ti.Placeholder = "Your text"
+	ti.CharLimit = 256
+	ti.CursorStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#FFF"))
+	ti.Width = 30
+
+	ti.Focus()
+
+	return &model{
+		input:     ti,
+		userColor: getColor(),
+	}
+}
+
+// Starts a new client UI
+func newClient() {
 	rand.Seed(time.Now().UnixNano())
 
 	p := tea.NewProgram(createModel())
@@ -44,6 +59,10 @@ func main() {
 	if _, err := p.Run(); err != nil {
 		log.Fatal("Err: ", err)
 	}
+}
+
+func main() {
+	newClient()
 }
 
 /* ----------------Main UI Functions---------------- */
@@ -115,19 +134,19 @@ func (m *model) registerNewUser(value string) {
 	}{Name: value}
 
 	jData, err := json.Marshal(data)
-	handleError(pkg.ClRegister+pkg.BadParse, err)
+	pkg.HandleError(pkg.ClRegister+pkg.BadParse, err, 0)
 
 	req, err := http.NewRequest(http.MethodPost, "http://"+pkg.ServerURL+"/register", bytes.NewBuffer(jData))
-	handleError(pkg.ClRegister+pkg.BadReq, err)
+	pkg.HandleError(pkg.ClRegister+pkg.BadReq, err, 0)
 
 	res, err := http.DefaultClient.Do(req)
-	handleError(pkg.ClRegister+pkg.BadRes, err)
+	pkg.HandleError(pkg.ClRegister+pkg.BadRes, err, 0)
 
 	if res.StatusCode == http.StatusAccepted {
 		m.name = value
 
 		c, _, err := websocket.Dial(context.Background(), "ws://"+pkg.ServerURL+"/message", nil)
-		handleError(pkg.ClRegister+pkg.BadConn, err)
+		pkg.HandleError(pkg.ClRegister+pkg.BadConn, err, 0)
 		m.conn = c
 
 		go m.receiveNewMessages()
@@ -135,31 +154,16 @@ func (m *model) registerNewUser(value string) {
 	}
 
 	resBody, err := ioutil.ReadAll(res.Body)
-	handleError(pkg.ClRegister+pkg.BadRead, err)
+	pkg.HandleError(pkg.ClRegister+pkg.BadRead, err, 0)
 
 	err = json.Unmarshal(resBody, &m.err)
-	handleError(pkg.ClRegister+pkg.BadParse, err)
+	pkg.HandleError(pkg.ClRegister+pkg.BadParse, err, 0)
 }
 
 // Stores messages received from the websocket connection
 func (m *model) receiveNewMessages() {
 	for {
-		message := struct {
-			Username    string
-			Message     string
-			MessageTime time.Time
-			Color       string
-		}{}
-
-		err := wsjson.Read(context.Background(), m.conn, &message)
-		handleError(pkg.ClMessage+pkg.BadRead, err)
-
-		msg := pkg.Message{
-			Username:    message.Username,
-			Message:     message.Message,
-			MessageTime: message.MessageTime,
-			Color:       message.Color,
-		}
+		msg := pkg.WsRead(m.conn, pkg.ClMessage+pkg.BadRead)
 
 		m.lock.Lock()
 		m.messages = append(m.messages, msg)
@@ -176,8 +180,7 @@ func (m *model) writeNewMessage(value string) {
 		Color:       m.userColor,
 	}
 
-	err := wsjson.Write(context.Background(), m.conn, message)
-	handleError(pkg.ClMessage+pkg.BadWrite, err)
+	pkg.WsWrite(m.conn, message, pkg.ClMessage+pkg.BadWrite)
 }
 
 // Adds neccessary info to display UI
@@ -222,49 +225,18 @@ func (m *model) displayUserMessages() {
 	}
 }
 
-// Creates the initial model that holds default values
-func createModel() *model {
-	ti := textinput.New()
-	ti.Placeholder = "Your text"
-	ti.CharLimit = 256
-	ti.CursorStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#FFF"))
-	ti.Width = 30
-
-	ti.Focus()
-
-	return &model{
-		input:     ti,
-		userColor: getColor(),
-	}
-}
+/* ----------------Standalone Functions---------------- */
 
 // Picks one random color from the scrapped color list
 func getColor() string {
 	body, err := ioutil.ReadFile(pkg.Scrapper + "/colors.txt")
-	handleError(pkg.Cl+pkg.BadOpen, err)
+	pkg.HandleError(pkg.Cl+pkg.BadOpen, err, 0)
 
 	colors := strings.Split(string(body), ", ")
 
 	return colors[rand.Intn(len(colors))]
 }
 
-// Handles incoming error
-func handleError(errMsg string, incomingErr error) {
-	if incomingErr == nil {
-		return
-	}
-
-	file, err := os.OpenFile(pkg.ClLogs, os.O_APPEND|os.O_WRONLY, 0600)
-	if err != nil {
-		fmt.Print(err)
-	}
-	defer file.Close()
-
-	// Writes error to logs file
-	if _, err := file.WriteString(time.Now().Format("2006-01-02 15:04") + " " + incomingErr.Error() + "\n\n"); err != nil {
-		fmt.Println(err)
-	}
-
-	// Exits program and gives message where error occured
-	log.Fatal(errMsg)
+func useAutolycus() {
+	scrapper.Scrape()
 }
