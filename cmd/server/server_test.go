@@ -1,4 +1,4 @@
-package main
+package server
 
 import (
 	"testing"
@@ -9,7 +9,11 @@ import (
 func Test_CheckNames(t *testing.T) {
 	s := newServer()
 
-	s.users["Batman"] = ""
+	client := user{
+		name: "Batman",
+	}
+
+	s.users = append(s.users, client)
 
 	// Test cases
 	tests := []struct {

@@ -1,11 +1,11 @@
 all:
-	go build -o build/server ./cmd/server/server.go
-	go build -o build/client ./cmd/client/client.go
+	go build -o ./build ./cmd/main.go
 
 server:
-	go run ./cmd/server/server.go
+	go run ./cmd/main.go server
 client:
-	go run ./cmd/client/client.go	
+	go run ./cmd/main.go client	
 
 test:
-	go run ./test/unitTests
+	go -test ./cmd/client/client_test.go
+	go -test ./cmd/client/server_test.go

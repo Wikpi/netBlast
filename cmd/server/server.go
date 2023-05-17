@@ -1,7 +1,6 @@
-package main
+package server
 
 import (
-	"encoding/json"
 	"io/ioutil"
 	"net/http"
 	"sync"
@@ -14,20 +13,19 @@ import (
 
 // Server struct that holds all the essential info
 type serverInfo struct {
-	messages    []pkg.Message
-	errMsg      string
-	statusCode  int
-	users       map[string]string
-	connections map[*websocket.Conn]string
-	lock        sync.RWMutex
-	mux         *http.ServeMux
+	messages []pkg.Message
+	users    []user
+	lock     sync.RWMutex
+	mux      *http.ServeMux
+}
+
+type user struct {
+	name string
+	conn *websocket.Conn
 }
 
 func newServer() *serverInfo {
 	server := &serverInfo{}
-
-	server.users = make(map[string]string)
-	server.connections = make(map[*websocket.Conn]string)
 	server.mux = http.NewServeMux()
 
 	return server
@@ -44,7 +42,7 @@ func (server *serverInfo) handleServer() {
 	pkg.HandleError(pkg.Sv, err, 0)
 }
 
-func main() {
+func Server() {
 	newServer().handleServer()
 }
 
@@ -55,28 +53,28 @@ func (s *serverInfo) registerUser(w http.ResponseWriter, r *http.Request) {
 	body, err := ioutil.ReadAll(r.Body)
 	pkg.HandleError(pkg.SvRegister+pkg.BadRead, err, 1)
 
-	name := struct {
-		Name string
-	}{}
+	name := pkg.Name{}
 
-	err = json.Unmarshal(body, &name)
-	pkg.HandleError(pkg.SvRegister+pkg.BadParse, err, 1)
+	pkg.ParseFromJson(body, &name, pkg.SvRegister+pkg.BadParse)
 
 	s.lock.Lock()
 	errMsg, status := checkName(name.Name, s)
 	s.lock.Unlock()
 
 	if status == http.StatusAccepted {
+		client := user{
+			name: name.Name,
+		}
+
 		s.lock.Lock()
-		s.users[name.Name] = ""
+		s.users = append(s.users, client)
 		s.lock.Unlock()
 	}
 
 	w.WriteHeader(status)
 	if errMsg != "" {
-		jErr, err := json.Marshal(errMsg)
-		pkg.HandleError(pkg.SvRegister+pkg.BadParse, err, 1)
-		w.Write(jErr)
+		data := pkg.ParseToJson(errMsg, pkg.SvRegister+pkg.BadParse)
+		w.Write(data)
 	}
 }
 
@@ -88,7 +86,7 @@ func (s *serverInfo) handleSession(w http.ResponseWriter, r *http.Request) {
 	defer c.Close(websocket.StatusInternalError, "")
 
 	s.lock.Lock()
-	s.connections[c] = ""
+	s.users[len(s.users)-1].conn = c
 	s.lock.Unlock()
 
 	s.readMessage(c)
@@ -101,8 +99,10 @@ func (s *serverInfo) readMessage(c *websocket.Conn) {
 	for {
 		message := pkg.WsRead(c, pkg.SvMessage+pkg.BadRead)
 		if (message == pkg.Message{}) {
-			delete(s.connections, c)
-			return
+			if userIdx := findUser(c, s); userIdx != -1 {
+				s.users = append(s.users[:userIdx], s.users[userIdx+1:]...)
+				return
+			}
 		}
 
 		s.lock.Lock()
@@ -116,8 +116,8 @@ func (s *serverInfo) readMessage(c *websocket.Conn) {
 // Writes user message to all other connections
 func (s *serverInfo) writeToAll(message pkg.Message) {
 	s.lock.RLock()
-	for ic := range s.connections {
-		pkg.WsWrite(ic, message, pkg.SvMessage+pkg.BadWrite)
+	for _, ic := range s.users {
+		pkg.WsWrite(ic.conn, message, pkg.SvMessage+pkg.BadWrite)
 	}
 	s.lock.RUnlock()
 }
@@ -135,15 +135,25 @@ func checkName(name string, s *serverInfo) (string, int) {
 	} else if utf8.RuneCountInString(name) > 10 {
 		errMsg = "Name too long. "
 		statusCode = http.StatusNotAcceptable
-	}
-
-	if _, ok := s.users[name]; !ok {
-		errMsg = ""
-		statusCode = http.StatusAccepted
 	} else {
-		errMsg = "Name already exists. "
-		statusCode = http.StatusNotAcceptable
+		if user := findUser(name, s); user == -1 {
+			errMsg = ""
+			statusCode = http.StatusAccepted
+		} else {
+			errMsg = "Name already exists. "
+			statusCode = http.StatusNotAcceptable
+		}
 	}
 
 	return errMsg, statusCode
+}
+
+// Finds name in user slice
+func findUser(key interface{}, s *serverInfo) int {
+	for idx, user := range s.users {
+		if user.name == key || user.conn == key {
+			return idx
+		}
+	}
+	return -1
 }
