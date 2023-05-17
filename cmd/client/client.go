@@ -1,9 +1,8 @@
-package main
+package client
 
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"io/ioutil"
 	"log"
 	"math/rand"
@@ -61,7 +60,7 @@ func newClient() {
 	}
 }
 
-func main() {
+func Client() {
 	newClient()
 }
 
@@ -80,7 +79,9 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		switch key.Type {
 		case tea.KeyCtrlC, tea.KeyEsc:
-			m.conn.Close(websocket.StatusNormalClosure, "Connection Closed")
+			if m.conn != nil {
+				m.conn.Close(websocket.StatusNormalClosure, "Connection Closed")
+			}
 			return m, tea.Quit
 		case tea.KeyEnter:
 			m.handleMessage()
@@ -129,18 +130,11 @@ func (m *model) handleMessage() {
 
 // Registers and establishes a websocket connection with the server
 func (m *model) registerNewUser(value string) {
-	data := struct {
-		Name string `json:"name"`
-	}{Name: value}
+	name := pkg.Name{Name: value}
 
-	jData, err := json.Marshal(data)
-	pkg.HandleError(pkg.ClRegister+pkg.BadParse, err, 0)
+	data := pkg.ParseToJson(name, pkg.ClRegister+pkg.BadParse)
 
-	req, err := http.NewRequest(http.MethodPost, "http://"+pkg.ServerURL+"/register", bytes.NewBuffer(jData))
-	pkg.HandleError(pkg.ClRegister+pkg.BadReq, err, 0)
-
-	res, err := http.DefaultClient.Do(req)
-	pkg.HandleError(pkg.ClRegister+pkg.BadRes, err, 0)
+	res := handleHTTPRequest(data, "http://"+pkg.ServerURL+"/register")
 
 	if res.StatusCode == http.StatusAccepted {
 		m.name = value
@@ -153,11 +147,11 @@ func (m *model) registerNewUser(value string) {
 		return
 	}
 
+	// Gives an error if registration failed
 	resBody, err := ioutil.ReadAll(res.Body)
 	pkg.HandleError(pkg.ClRegister+pkg.BadRead, err, 0)
 
-	err = json.Unmarshal(resBody, &m.err)
-	pkg.HandleError(pkg.ClRegister+pkg.BadParse, err, 0)
+	pkg.ParseFromJson(resBody, &m.err, pkg.ClRegister+pkg.BadParse)
 }
 
 // Stores messages received from the websocket connection
@@ -197,9 +191,7 @@ func (m *model) displayUI() {
 		return
 	}
 	m.lock.RLock()
-
 	defer m.lock.RUnlock()
-
 	m.displayUserMessages()
 
 	m.UI.WriteString("<-------------------------------------> \n Message: \n")
@@ -227,6 +219,17 @@ func (m *model) displayUserMessages() {
 
 /* ----------------Standalone Functions---------------- */
 
+// Handles the POST request to server
+func handleHTTPRequest(data []byte, URL string) *http.Response {
+	req, err := http.NewRequest(http.MethodPost, URL, bytes.NewBuffer(data))
+	pkg.HandleError(pkg.ClRegister+pkg.BadReq, err, 0)
+
+	res, err := http.DefaultClient.Do(req)
+	pkg.HandleError(pkg.ClRegister+pkg.BadRes, err, 0)
+
+	return res
+}
+
 // Picks one random color from the scrapped color list
 func getColor() string {
 	body, err := ioutil.ReadFile(pkg.Scrapper + "/colors.txt")
@@ -237,6 +240,7 @@ func getColor() string {
 	return colors[rand.Intn(len(colors))]
 }
 
+// Scrapes colors using Autolycus module
 func useAutolycus() {
 	scrapper.Scrape()
 }
