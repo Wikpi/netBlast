@@ -13,4 +13,4 @@ const Scrapper = "./tools/scrapper"
 //const SvLogs = "./logs/server/logs.txt"
 
 // Logs
-const Logs = "./logs/logs"
+const Logs = "./logs/logs.txt"

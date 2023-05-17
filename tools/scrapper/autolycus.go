@@ -1,8 +1,6 @@
 package scrapper
 
-import (
-	autolycus "github.com/Wikpi/Autolycus/pkg"
-)
+import autolycus "github.com/Wikpi/Autolycus/pkg"
 
 func Scrape() {
 	colors := []string{}

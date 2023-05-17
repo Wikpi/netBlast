@@ -30,6 +30,7 @@ func HandleError(errMsg string, incomingErr error, action ...int) {
 		log.Fatal(errMsg)
 	case 1:
 		fmt.Println(errMsg)
+	case 2:
+		return
 	}
-
 }

@@ -9,3 +9,7 @@ type Message struct {
 	MessageTime time.Time `json:"messageTime"`
 	Color       string    `json:"color"`
 }
+
+type Name struct {
+	Name string `json:"name"`
+}
