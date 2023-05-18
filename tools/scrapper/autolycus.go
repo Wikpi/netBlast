@@ -1,6 +1,10 @@
 package scrapper
 
-import autolycus "github.com/Wikpi/Autolycus/pkg"
+import (
+	"netBlast/pkg"
+
+	autolycus "github.com/Wikpi/Autolycus/pkg"
+)
 
 func Scrape() {
 	colors := []string{}
@@ -10,7 +14,7 @@ func Scrape() {
 	// Arguments to scrape (tag, key, value !)
 	arg := []string{"td", "class", "color-table__cell--hex"}
 	// Write path of the txt file
-	path := "./tools/scrapper/colors.txt"
+	path := "../.." + pkg.Scrapper + "/colors.txt"
 
 	// Iniates the scrapper i.e. get the html string and parses it
 	doc := autolycus.Initiate(url)

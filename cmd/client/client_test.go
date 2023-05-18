@@ -2,6 +2,8 @@ package client
 
 import (
 	"io/ioutil"
+	"os"
+	"syscall"
 	"testing"
 
 	"netBlast/cmd/server"
@@ -20,19 +22,18 @@ func Test_GetColor(t *testing.T) {
 func Test_UseAutolycus(t *testing.T) {
 	scrapper.Scrape()
 
-	body, err := ioutil.ReadFile(pkg.Scrapper + "/colors.txt")
+	body, err := ioutil.ReadFile("../.." + pkg.Scrapper + "/colors.txt")
 	pkg.HandleError(pkg.Cl+pkg.BadOpen, err, 0)
 
 	assert.NotEmpty(t, body)
 }
 func Test_HandleHTTPRequest(t *testing.T) {
-	var end chan bool
 	const URL = "http://" + pkg.ServerURL + "/register"
 
+	shutdown := make(chan os.Signal)
+
 	go func() {
-		server.Server()
-		<-end
-		return
+		server.Server(shutdown)
 	}()
 
 	name := pkg.Name{Name: "Bobby"}
@@ -40,5 +41,6 @@ func Test_HandleHTTPRequest(t *testing.T) {
 
 	res := handleHTTPRequest(data, URL)
 	assert.NotEmpty(t, res)
-	end <- true
+
+	shutdown <- syscall.SIGINT
 }

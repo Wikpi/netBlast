@@ -1,13 +1,16 @@
 package server
 
 import (
+	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 )
 
 func Test_CheckNames(t *testing.T) {
-	s := newServer()
+	shutdown := make(chan os.Signal)
+
+	s := newServer(shutdown)
 
 	client := user{
 		name: "Batman",

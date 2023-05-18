@@ -13,7 +13,7 @@ func HandleError(errMsg string, incomingErr error, action ...int) {
 		return
 	}
 
-	file, err := os.OpenFile(Logs, os.O_APPEND|os.O_WRONLY, 0600)
+	file, err := os.OpenFile("../.."+Logs, os.O_APPEND|os.O_WRONLY, 0600)
 	if err != nil {
 		fmt.Print(err)
 	}
@@ -30,7 +30,7 @@ func HandleError(errMsg string, incomingErr error, action ...int) {
 		log.Fatal(errMsg)
 	case 1:
 		fmt.Println(errMsg)
-	case 2:
+	default:
 		return
 	}
 }

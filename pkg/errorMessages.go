@@ -23,4 +23,5 @@ var (
 	BadRead  = "couldnt read response body."
 	BadWrite = "couldnt write body."
 	BadOpen  = "couldnt open file."
+	BadClose = "couldnt close server."
 )

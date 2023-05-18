@@ -232,7 +232,7 @@ func handleHTTPRequest(data []byte, URL string) *http.Response {
 
 // Picks one random color from the scrapped color list
 func getColor() string {
-	body, err := ioutil.ReadFile(pkg.Scrapper + "/colors.txt")
+	body, err := ioutil.ReadFile("../.." + pkg.Scrapper + "/colors.txt")
 	pkg.HandleError(pkg.Cl+pkg.BadOpen, err, 0)
 
 	colors := strings.Split(string(body), ", ")

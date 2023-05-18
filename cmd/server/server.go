@@ -1,9 +1,13 @@
 package server
 
 import (
+	"context"
 	"io/ioutil"
 	"net/http"
+	"os"
+	"os/signal"
 	"sync"
+	"time"
 	"unicode/utf8"
 
 	"netBlast/pkg"
@@ -13,10 +17,17 @@ import (
 
 // Server struct that holds all the essential info
 type serverInfo struct {
+	s        http.Server
 	messages []pkg.Message
 	users    []user
 	lock     sync.RWMutex
 	mux      *http.ServeMux
+	shutdown chan os.Signal
+}
+
+type server struct {
+	Addr   string
+	Handle http.Handler
 }
 
 type user struct {
@@ -24,11 +35,14 @@ type user struct {
 	conn *websocket.Conn
 }
 
-func newServer() *serverInfo {
-	server := &serverInfo{}
-	server.mux = http.NewServeMux()
+// Creates server with default parameters
+func newServer(sd chan os.Signal) *serverInfo {
+	serverInfo := &serverInfo{}
+	serverInfo.s = http.Server{Addr: pkg.ServerURL, Handler: nil}
+	serverInfo.mux = http.NewServeMux()
+	serverInfo.shutdown = sd
 
-	return server
+	return serverInfo
 }
 
 // Stores all server handlers
@@ -38,12 +52,14 @@ func (server *serverInfo) handleServer() {
 	// Receives and handles user messages
 	server.mux.HandleFunc("/message", server.handleSession)
 
-	err := http.ListenAndServe(pkg.ServerURL, server.mux)
+	err := server.s.ListenAndServe()
 	pkg.HandleError(pkg.Sv, err, 0)
+
+	go server.serverShutdown()
 }
 
-func Server() {
-	newServer().handleServer()
+func Server(shutdown chan os.Signal) {
+	newServer(shutdown).handleServer()
 }
 
 /* ----------------Main Handler Functions---------------- */
@@ -93,6 +109,18 @@ func (s *serverInfo) handleSession(w http.ResponseWriter, r *http.Request) {
 }
 
 /* ----------------Additional Functions---------------- */
+
+func (server *serverInfo) serverShutdown() {
+	signal.Notify(server.shutdown, os.Interrupt)
+	<-server.shutdown
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	err := server.s.Shutdown(ctx)
+	pkg.HandleError(pkg.Sv+pkg.BadClose, err, 1)
+
+}
 
 // Reads received messages
 func (s *serverInfo) readMessage(c *websocket.Conn) {
