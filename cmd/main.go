@@ -2,11 +2,9 @@ package main
 
 import (
 	"flag"
-	"fmt"
 	"log"
 	"netBlast/cmd/client"
 	"netBlast/cmd/server"
-	"netBlast/pkg"
 
 	"os"
 )
@@ -30,8 +28,6 @@ func main() {
 
 	switch arg {
 	case "server":
-		fmt.Println("Running server on: ", pkg.ServerURL)
-
 		shutdown := make(chan os.Signal)
 
 		server.Server(shutdown)

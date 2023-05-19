@@ -36,9 +36,9 @@ git clone https://github.com/Wikpi/netBlast
 ```
 (Similar documentation can be found in the `./docs` sub folder.)
 
-Afterwards to make the executables, which you can find and launch seperatly in the `./build`, run:
+Afterwards to make the executables, which you can find and launch seperatly in the `./build` (if it is not present, the directory will be automatically created), run:
 ```
-make bld
+make all
 ```
 
 Or run the server in your cmd:
@@ -52,19 +52,19 @@ make client
 ```
 
 # Project layout
-**Internal** - holds all the main applications of the project, `./server` for server side scripts and `./client` for client.
+**cmd** - holds all the main applications of the project, `./server` for server side scripts and `./client` for client.
 
-**Build** - path, in which the build executables are made and stored, `./server` for server side app and `./client` for client.
+**pkg** - stores additional packages used throughout the project.
 
-**Test** - holds the unitTests script, used for testing the app.
+**build** - path, in which the build executables are made and stored, `./server` for server side app and `./client` for client.
 
-**Assets** - random assortment of media, used for decorating the project page.
+**assets** - random assortment of media, used for decorating the project page.
 
-**Docs** - short documentation of the project.
+**docs** - short documentation of the project.
 
 #
 
 ![2023-05-01 18-56-32](https://user-images.githubusercontent.com/66695611/235483409-93815da2-ae86-4116-bdf8-f9f40704745d.gif)
 
-***Still being updated***
+# ***Still being updated***
 

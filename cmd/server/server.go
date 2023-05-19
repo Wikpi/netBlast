@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"os"
@@ -47,15 +48,17 @@ func newServer(sd chan os.Signal) *serverInfo {
 
 // Stores all server handlers
 func (server *serverInfo) handleServer() {
+	fmt.Println("Running server on: ", pkg.ServerURL)
+
 	// Registers user and establishes a connection
 	server.mux.HandleFunc("/register", server.registerUser)
 	// Receives and handles user messages
 	server.mux.HandleFunc("/message", server.handleSession)
 
-	err := server.s.ListenAndServe()
+	err := http.ListenAndServe(pkg.ServerURL, server.mux)
 	pkg.HandleError(pkg.Sv, err, 0)
 
-	go server.serverShutdown()
+	//go server.serverShutdown()
 }
 
 func Server(shutdown chan os.Signal) {

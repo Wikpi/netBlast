@@ -11,5 +11,5 @@ func ParseToJson(data any, errMsg string) []byte {
 
 func ParseFromJson(body []byte, data any, errMsg string) {
 	err := json.Unmarshal(body, data)
-	HandleError(errMsg, err, 1)
+	HandleError(errMsg, err, 0)
 }
