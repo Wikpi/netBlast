@@ -39,7 +39,7 @@ func Test_HandleHTTPRequest(t *testing.T) {
 	name := pkg.Name{Name: "Bobby"}
 	data := pkg.ParseToJson(name, "test")
 
-	res := handleHTTPRequest(data, URL)
+	res := handlePostRequest(data, URL, "")
 	assert.NotEmpty(t, res)
 
 	shutdown <- syscall.SIGINT

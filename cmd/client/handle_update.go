@@ -1,7 +1,6 @@
 package client
 
 import (
-	"bytes"
 	"context"
 	"io/ioutil"
 	"net/http"
@@ -26,6 +25,8 @@ func (m *model) routeMessage() {
 		m.writeNewMessage(value)
 	case "settings":
 		m.updateSettings(value)
+	case "users":
+		m.listUsers(value)
 	}
 }
 
@@ -35,7 +36,7 @@ func (m *model) registerNewUser(value string) {
 
 	data := pkg.ParseToJson(name, pkg.ClRegister+pkg.BadParse)
 
-	res := handleHTTPRequest(data, "http://"+pkg.ServerURL+"/register")
+	res := handlePostRequest(data, "http://"+pkg.ServerURL+"/register", pkg.ClRegister)
 
 	if res.StatusCode == http.StatusAccepted {
 		m.user.name = value
@@ -53,6 +54,8 @@ func (m *model) registerNewUser(value string) {
 	pkg.HandleError(pkg.ClRegister+pkg.BadRead, err, 0)
 
 	pkg.ParseFromJson(resBody, &m.err, pkg.ClRegister+pkg.BadParse)
+
+	res.Body.Close()
 }
 
 // Stores messages received from the websocket connection
@@ -85,13 +88,6 @@ func (m *model) updateSettings(value string) {
 	}
 }
 
-// Handles the POST request to server
-func handleHTTPRequest(data []byte, URL string) *http.Response {
-	req, err := http.NewRequest(http.MethodPost, URL, bytes.NewBuffer(data))
-	pkg.HandleError(pkg.ClRegister+pkg.BadReq, err, 0)
-
-	res, err := http.DefaultClient.Do(req)
-	pkg.HandleError(pkg.ClRegister+pkg.BadRes, err, 0)
-
-	return res
+func (m *model) listUsers(value string) {
+	return
 }

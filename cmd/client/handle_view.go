@@ -14,6 +14,15 @@ type option struct {
 	value string
 }
 
+type item struct {
+	title string
+	desc  string
+}
+
+func (i item) Title() string       { return i.title }
+func (i item) Description() string { return i.desc }
+func (i item) FilterValue() string { return i.title }
+
 func init() {
 	options = []option{
 		{
@@ -32,6 +41,8 @@ func (m *model) routeScreen() {
 		m.displayChat()
 	case "settings":
 		m.displaySettings()
+	case "users":
+		m.displayUsers()
 	}
 }
 
@@ -73,6 +84,17 @@ func (m *model) displaySettings() {
 	for _, option := range options {
 		m.ui.WriteString(option.name + ": " + option.value + "\n")
 	}
+}
+
+// Displays the users screen
+func (m *model) displayUsers() {
+	m.ui = strings.Builder{}
+
+	m.ui.WriteString(m.userList.list.View())
+
+	// for _, user := range m.userList.users {
+	// 	m.ui.WriteString(user.name + ": " + "user.conn" + "\n")
+	// }
 }
 
 // Display all user messages

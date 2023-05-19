@@ -1,6 +1,8 @@
 package pkg
 
-import "encoding/json"
+import (
+	"encoding/json"
+)
 
 func ParseToJson(data any, errMsg string) []byte {
 	json, err := json.Marshal(data)
@@ -11,5 +13,6 @@ func ParseToJson(data any, errMsg string) []byte {
 
 func ParseFromJson(body []byte, data any, errMsg string) {
 	err := json.Unmarshal(body, data)
-	HandleError(errMsg, err, 0)
+
+	HandleError(errMsg, err, 1)
 }

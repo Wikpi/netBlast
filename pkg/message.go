@@ -1,6 +1,10 @@
 package pkg
 
-import "time"
+import (
+	"time"
+
+	"nhooyr.io/websocket"
+)
 
 // Structure of individual user message
 type Message struct {
@@ -12,4 +16,9 @@ type Message struct {
 
 type Name struct {
 	Name string `json:"name"`
+}
+
+type User struct {
+	Name string
+	Conn *websocket.Conn
 }

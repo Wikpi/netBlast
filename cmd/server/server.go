@@ -20,7 +20,7 @@ import (
 type serverInfo struct {
 	s        http.Server
 	messages []pkg.Message
-	users    []user
+	users    []pkg.User
 	lock     sync.RWMutex
 	mux      *http.ServeMux
 	shutdown chan os.Signal
@@ -29,11 +29,6 @@ type serverInfo struct {
 type server struct {
 	Addr   string
 	Handle http.Handler
-}
-
-type user struct {
-	name string
-	conn *websocket.Conn
 }
 
 // Creates server with default parameters
@@ -50,15 +45,21 @@ func newServer(sd chan os.Signal) *serverInfo {
 func (server *serverInfo) handleServer() {
 	fmt.Println("Running server on: ", pkg.ServerURL)
 
+	// Check if server is running
+	server.mux.HandleFunc("/", ping)
 	// Registers user and establishes a connection
 	server.mux.HandleFunc("/register", server.registerUser)
 	// Receives and handles user messages
 	server.mux.HandleFunc("/message", server.handleSession)
+	// Give connected user list
+	server.mux.HandleFunc("/userList", server.sendUserList)
+
+	//go server.serverShutdown()
+	/* not working? */
+	// err := server.s.ListenAndServe()
 
 	err := http.ListenAndServe(pkg.ServerURL, server.mux)
 	pkg.HandleError(pkg.Sv, err, 0)
-
-	//go server.serverShutdown()
 }
 
 func Server(shutdown chan os.Signal) {
@@ -66,6 +67,12 @@ func Server(shutdown chan os.Signal) {
 }
 
 /* ----------------Main Handler Functions---------------- */
+
+// Pings the server
+func ping(w http.ResponseWriter, r *http.Request) {
+	fmt.Println("Update call - running on: " + pkg.ServerURL)
+	w.WriteHeader(http.StatusOK)
+}
 
 // Registers new users
 func (s *serverInfo) registerUser(w http.ResponseWriter, r *http.Request) {
@@ -81,8 +88,8 @@ func (s *serverInfo) registerUser(w http.ResponseWriter, r *http.Request) {
 	s.lock.Unlock()
 
 	if status == http.StatusAccepted {
-		client := user{
-			name: name.Name,
+		client := pkg.User{
+			Name: name.Name,
 		}
 
 		s.lock.Lock()
@@ -105,10 +112,17 @@ func (s *serverInfo) handleSession(w http.ResponseWriter, r *http.Request) {
 	defer c.Close(websocket.StatusInternalError, "")
 
 	s.lock.Lock()
-	s.users[len(s.users)-1].conn = c
+	s.users[len(s.users)-1].Conn = c
 	s.lock.Unlock()
 
 	s.readMessage(c)
+}
+
+// Sends back the list of users
+func (s *serverInfo) sendUserList(w http.ResponseWriter, r *http.Request) {
+	users := pkg.ParseToJson(s.users, "Server/SendUsers: couldnt parse to json.")
+
+	w.Write(users)
 }
 
 /* ----------------Additional Functions---------------- */
@@ -148,7 +162,7 @@ func (s *serverInfo) readMessage(c *websocket.Conn) {
 func (s *serverInfo) writeToAll(message pkg.Message) {
 	s.lock.RLock()
 	for _, ic := range s.users {
-		pkg.WsWrite(ic.conn, message, pkg.SvMessage+pkg.BadWrite)
+		pkg.WsWrite(ic.Conn, message, pkg.SvMessage+pkg.BadWrite)
 	}
 	s.lock.RUnlock()
 }
@@ -182,7 +196,7 @@ func checkName(name string, s *serverInfo) (string, int) {
 // Finds name in user slice
 func findUser(key interface{}, s *serverInfo) int {
 	for idx, user := range s.users {
-		if user.name == key || user.conn == key {
+		if user.Name == key || user.Conn == key {
 			return idx
 		}
 	}

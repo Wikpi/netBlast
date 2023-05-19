@@ -3,12 +3,14 @@ package client
 import (
 	"log"
 	"math/rand"
+	"net/http"
 	"strings"
 	"sync"
 	"time"
 
 	"netBlast/pkg"
 
+	"github.com/charmbracelet/bubbles/list"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -17,13 +19,25 @@ import (
 
 // Stores the application state
 type model struct {
-	cursor int
-	screen string
-	err    string
-	user   userInfo
-	input  textinput.Model
-	lock   sync.RWMutex
-	ui     strings.Builder
+	cursor   int
+	screen   string
+	err      string
+	user     userInfo
+	settings settings
+	userList userList
+	input    textinput.Model
+	lock     sync.RWMutex
+	ui       strings.Builder
+}
+
+// Additional model for userlist screen
+type userList struct {
+	users []list.Item
+	list  list.Model
+}
+
+// Additional model for settings screen
+type settings struct {
 }
 
 // Stores user info
@@ -49,17 +63,25 @@ func newClient() *model {
 		color = "#FFF"
 	}
 
+	items := []list.Item{item{title: "Bobby", desc: "broo"}}
+
 	model := &model{
-		input:  ti,
-		screen: "register",
-		user:   userInfo{userColor: color},
+		input:    ti,
+		screen:   "register",
+		user:     userInfo{userColor: color},
+		userList: userList{users: nil, list: list.New(items, list.NewDefaultDelegate(), 0, 0)},
 	}
+	model.userList.list.Title = "Current Users"
 
 	return model
 }
 
 // Starts a new client
 func Client() {
+	if status := pingServer(); status != http.StatusOK {
+		log.Fatal("Server not responding!")
+	}
+
 	rand.Seed(time.Now().UnixNano())
 
 	p := tea.NewProgram(newClient())
@@ -83,7 +105,7 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch key := msg.(type) {
 	case tea.KeyMsg:
 		switch key.Type {
-		case tea.KeyCtrlC, tea.KeyEsc:
+		case tea.KeyEsc:
 			if m.user.conn != nil {
 				m.user.conn.Close(websocket.StatusNormalClosure, "Connection Closed")
 			}
@@ -99,7 +121,19 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			m.screen = "chat"
 			return m, nil
+		case tea.KeyCtrlC:
+			if m.screen == "register" {
+				return m, nil
+			}
 
+			if m.screen == "chat" {
+				m.screen = "users"
+				getUserList(m)
+				cmd := m.userList.list.SetItems(m.userList.users)
+				return m, cmd
+			}
+			m.screen = "chat"
+			return m, nil
 		case tea.KeyEnter:
 			m.routeMessage()
 
@@ -123,11 +157,11 @@ func (m *model) View() string {
 	// Listens for input
 	m.ui.WriteString(m.input.View())
 
-	if m.screen == "chat" {
-		m.ui.WriteString("\n\nPress CtrlX to enter settings.")
-	} else if m.screen == "settings" {
-		m.ui.WriteString("\n\n Press CtrlX to return to the chatroom.")
-	}
+	// if m.screen == "chat" {
+	// 	m.ui.WriteString("\n\nPress CtrlX to enter settings.")
+	// } else if m.screen == "settings" {
+	// 	m.ui.WriteString("\n\n Press CtrlX to return to the chatroom.")
+	// }
 
 	m.ui.WriteString("\nPress Esc to quit.\n")
 

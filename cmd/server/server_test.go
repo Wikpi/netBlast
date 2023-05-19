@@ -1,6 +1,7 @@
 package server
 
 import (
+	"netBlast/pkg"
 	"os"
 	"testing"
 
@@ -12,8 +13,8 @@ func Test_CheckNames(t *testing.T) {
 
 	s := newServer(shutdown)
 
-	client := user{
-		name: "Batman",
+	client := pkg.User{
+		Name: "Batman",
 	}
 
 	s.users = append(s.users, client)
