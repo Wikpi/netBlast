@@ -10,7 +10,6 @@ import (
 
 	"netBlast/pkg"
 
-	"github.com/charmbracelet/bubbles/list"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -32,8 +31,7 @@ type model struct {
 
 // Additional model for userlist screen
 type userList struct {
-	users []list.Item
-	list  list.Model
+	users []pkg.User
 }
 
 // Additional model for settings screen
@@ -42,10 +40,8 @@ type settings struct {
 
 // Stores user info
 type userInfo struct {
-	name      string
-	userColor string
-	messages  []pkg.Message
-	conn      *websocket.Conn
+	user     pkg.User
+	messages []pkg.Message
 }
 
 // Creates the initial model that holds default values
@@ -63,15 +59,12 @@ func newClient() *model {
 		color = "#FFF"
 	}
 
-	items := []list.Item{item{title: "Bobby", desc: "broo"}}
-
 	model := &model{
-		input:    ti,
-		screen:   "register",
-		user:     userInfo{userColor: color},
-		userList: userList{users: nil, list: list.New(items, list.NewDefaultDelegate(), 0, 0)},
+		input:  ti,
+		screen: "register",
+		user:   userInfo{},
 	}
-	model.userList.list.Title = "Current Users"
+	model.user.user.UserColor = color
 
 	return model
 }
@@ -106,10 +99,19 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		switch key.Type {
 		case tea.KeyEsc:
-			if m.user.conn != nil {
-				m.user.conn.Close(websocket.StatusNormalClosure, "Connection Closed")
+			m.screen = "quit"
+
+		case tea.KeyCtrlH:
+			if m.screen == "register" {
+				return m, nil
 			}
-			return m, tea.Quit
+
+			if m.screen == "chat" {
+				m.screen = "help"
+				return m, nil
+			}
+			m.screen = "chat"
+			return m, nil
 		case tea.KeyCtrlX:
 			if m.screen == "register" {
 				return m, nil
@@ -129,8 +131,7 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.screen == "chat" {
 				m.screen = "users"
 				getUserList(m)
-				cmd := m.userList.list.SetItems(m.userList.users)
-				return m, cmd
+				return m, nil
 			}
 			m.screen = "chat"
 			return m, nil
@@ -139,6 +140,14 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 			// Resets input field
 			m.input.SetValue("")
+
+			if m.user.user.Status == "offline" {
+				if m.user.user.Conn != nil {
+					m.user.user.Conn.Close(websocket.StatusNormalClosure, "Connection Closed")
+				}
+
+				return m, tea.Quit
+			}
 
 			return m, nil
 		}
@@ -153,17 +162,6 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 // Renders the UI based on the data in the model
 func (m *model) View() string {
 	m.routeScreen()
-
-	// Listens for input
-	m.ui.WriteString(m.input.View())
-
-	// if m.screen == "chat" {
-	// 	m.ui.WriteString("\n\nPress CtrlX to enter settings.")
-	// } else if m.screen == "settings" {
-	// 	m.ui.WriteString("\n\n Press CtrlX to return to the chatroom.")
-	// }
-
-	m.ui.WriteString("\nPress Esc to quit.\n")
 
 	return m.ui.String()
 }

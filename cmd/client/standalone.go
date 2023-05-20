@@ -24,20 +24,9 @@ func getUserList(m *model) {
 	resBody, err := ioutil.ReadAll(res.Body)
 	pkg.HandleError(pkg.Cl+pkg.BadRead, err)
 
-	users := []pkg.User{}
-
 	m.lock.Lock()
-	pkg.ParseFromJson(resBody, &users, pkg.Cl+pkg.BadParse)
+	pkg.ParseFromJson(resBody, &m.userList.users, pkg.Cl+pkg.BadParse)
 	m.lock.Unlock()
-
-	for _, user := range users {
-		item := item{
-			title: user.Name,
-			desc:  "user.conn",
-		}
-
-		m.userList.users = append(m.userList.users, item)
-	}
 
 	res.Body.Close()
 }

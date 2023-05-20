@@ -27,6 +27,10 @@ func (m *model) routeMessage() {
 		m.updateSettings(value)
 	case "users":
 		m.listUsers(value)
+	case "quit":
+		m.quitUser(value)
+	case "help":
+		m.handleHelp(value)
 	}
 }
 
@@ -39,11 +43,14 @@ func (m *model) registerNewUser(value string) {
 	res := handlePostRequest(data, "http://"+pkg.ServerURL+"/register", pkg.ClRegister)
 
 	if res.StatusCode == http.StatusAccepted {
-		m.user.name = value
+		m.user.user.Name = value
 
 		c, _, err := websocket.Dial(context.Background(), "ws://"+pkg.ServerURL+"/message", nil)
 		pkg.HandleError(pkg.ClRegister+pkg.BadConn, err, 0)
-		m.user.conn = c
+		m.user.user.Conn = c
+
+		m.user.user.Status = "online"
+		m.screen = "chat"
 
 		go m.receiveNewMessages()
 		return
@@ -61,7 +68,7 @@ func (m *model) registerNewUser(value string) {
 // Stores messages received from the websocket connection
 func (m *model) receiveNewMessages() {
 	for {
-		msg := pkg.WsRead(m.user.conn, pkg.ClMessage+pkg.BadRead)
+		msg := pkg.WsRead(m.user.user.Conn, pkg.ClMessage+pkg.BadRead)
 
 		m.lock.Lock()
 		m.user.messages = append(m.user.messages, msg)
@@ -71,23 +78,39 @@ func (m *model) receiveNewMessages() {
 
 // Writes user message to websocket connection
 func (m *model) writeNewMessage(value string) {
+	user := m.user.user
+
 	message := pkg.Message{
-		Username:    m.user.name,
+		Username:    user.Name,
 		Message:     value,
 		MessageTime: time.Now(),
-		Color:       m.user.userColor,
+		Color:       user.UserColor,
 	}
 
-	pkg.WsWrite(m.user.conn, message, pkg.ClMessage+pkg.BadWrite)
+	pkg.WsWrite(user.Conn, message, pkg.ClMessage+pkg.BadWrite)
 }
 
 // Updates user settings
 func (m *model) updateSettings(value string) {
 	if strings.ToLower(value) == "color" {
-		m.user.userColor = getColor()
+		m.user.user.UserColor = getColor()
 	}
 }
 
 func (m *model) listUsers(value string) {
+	return
+}
+
+func (m *model) quitUser(value string) {
+	if value == "Y" {
+		m.user.user.Status = "offline"
+		return
+	} else if value == "N" {
+		m.screen = "chat"
+		return
+	}
+}
+
+func (m *model) handleHelp(value string) {
 	return
 }

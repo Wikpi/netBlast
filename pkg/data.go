@@ -1,5 +1,11 @@
 package pkg
 
+import (
+	"time"
+
+	"nhooyr.io/websocket"
+)
+
 // Server url and port
 const ServerURL = "localhost:8080"
 
@@ -14,3 +20,24 @@ const Scrapper = "./tools/scrapper"
 
 // Logs
 const Logs = "./logs/logs.txt"
+
+// Structure of individual user message
+type Message struct {
+	Username    string    `json:"username"`
+	Message     string    `json:"message"`
+	MessageTime time.Time `json:"messageTime"`
+	Color       string    `json:"color"`
+}
+
+// Structure of name message
+type Name struct {
+	Name string `json:"name"`
+}
+
+// Structure of userList message
+type User struct {
+	Name      string
+	Conn      *websocket.Conn
+	Status    string
+	UserColor string
+}

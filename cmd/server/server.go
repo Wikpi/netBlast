@@ -113,6 +113,7 @@ func (s *serverInfo) handleSession(w http.ResponseWriter, r *http.Request) {
 
 	s.lock.Lock()
 	s.users[len(s.users)-1].Conn = c
+	s.users[len(s.users)-1].Status = "Online"
 	s.lock.Unlock()
 
 	s.readMessage(c)
