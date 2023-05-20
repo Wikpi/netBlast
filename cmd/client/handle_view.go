@@ -89,7 +89,7 @@ func (m *model) displayChat() {
 
 	m.logUserMessages()
 
-	m.listenInput("\n\nPress CtrlZ to see helpful commands\n")
+	m.listenInput("\n\nPress CtrlH to see helpful commands\n")
 }
 
 // Displays the settings screen
@@ -102,7 +102,7 @@ func (m *model) displaySettings() {
 		m.ui.WriteString(option.name + ": " + option.value + "\n")
 	}
 
-	m.listenInput("\n\nPress CtrlZ to see helpful commands\n")
+	m.listenInput("\n\nPress CtrlH to see helpful commands\n")
 }
 
 // Displays the users screen
@@ -115,7 +115,7 @@ func (m *model) displayUsers() {
 		m.ui.WriteString(user.Name + ": " + user.Status + "\n")
 	}
 
-	m.listenInput("\n\nPress CtrlZ to see helpful commands\n")
+	m.listenInput("\n\nPress CtrlH to see helpful commands\n")
 }
 
 // Displays the quit screen

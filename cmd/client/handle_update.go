@@ -20,22 +20,22 @@ func (m *model) routeMessage() {
 
 	switch m.screen {
 	case "register":
-		m.registerNewUser(value)
+		m.handleRegister(value)
 	case "chat":
-		m.writeNewMessage(value)
+		m.handleWrite(value)
 	case "settings":
-		m.updateSettings(value)
+		m.handleSettings(value)
 	case "users":
-		m.listUsers(value)
+		m.handleUserList(value)
 	case "quit":
-		m.quitUser(value)
+		m.handleQuit(value)
 	case "help":
 		m.handleHelp(value)
 	}
 }
 
 // Registers and establishes a websocket connection with the server
-func (m *model) registerNewUser(value string) {
+func (m *model) handleRegister(value string) {
 	name := pkg.Name{Name: value}
 
 	data := pkg.ParseToJson(name, pkg.ClRegister+pkg.BadParse)
@@ -77,7 +77,7 @@ func (m *model) receiveNewMessages() {
 }
 
 // Writes user message to websocket connection
-func (m *model) writeNewMessage(value string) {
+func (m *model) handleWrite(value string) {
 	user := m.user.user
 
 	message := pkg.Message{
@@ -91,17 +91,17 @@ func (m *model) writeNewMessage(value string) {
 }
 
 // Updates user settings
-func (m *model) updateSettings(value string) {
+func (m *model) handleSettings(value string) {
 	if strings.ToLower(value) == "color" {
 		m.user.user.UserColor = getColor()
 	}
 }
 
-func (m *model) listUsers(value string) {
+func (m *model) handleUserList(value string) {
 	return
 }
 
-func (m *model) quitUser(value string) {
+func (m *model) handleQuit(value string) {
 	if value == "Y" {
 		m.user.user.Status = "offline"
 		return

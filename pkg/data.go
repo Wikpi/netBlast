@@ -36,8 +36,8 @@ type Name struct {
 
 // Structure of userList message
 type User struct {
-	Name      string
-	Conn      *websocket.Conn
-	Status    string
-	UserColor string
+	Name      string          `json:"Name"`
+	Conn      *websocket.Conn `json:"Conn"`
+	Status    string          `json:"Status"`
+	UserColor string          `json:"UserColor"`
 }
