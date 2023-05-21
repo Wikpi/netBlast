@@ -1,47 +1,12 @@
 package client
 
 import (
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/charmbracelet/lipgloss"
 )
-
-var settingOptions []option
-var helpOptions []option
-
-type option struct {
-	name  string
-	value string
-}
-
-func init() {
-	settingOptions = []option{
-		{
-			name:  "Color",
-			value: "update settings related to color option.",
-		},
-	}
-
-	helpOptions = []option{
-		{
-			name:  "Help",
-			value: "press -CtrlH to see help.",
-		},
-		{
-			name:  "Settings",
-			value: "press -CtrlX to enter settings.",
-		},
-		{
-			name:  "Users",
-			value: "press -CtrlC to see users.",
-		},
-		{
-			name:  "Quit",
-			value: "press -Esc to quit.",
-		},
-	}
-}
 
 // Routes to different UI screens
 func (m *model) routeScreen() {
@@ -89,7 +54,8 @@ func (m *model) displayChat() {
 
 	m.logUserMessages()
 
-	m.listenInput("\n\nPress CtrlH to see helpful commands\n")
+	m.listenInput()
+	m.ui.WriteString("\n\nPress CtrlH to see helpful commands\n")
 }
 
 // Displays the settings screen
@@ -98,11 +64,12 @@ func (m *model) displaySettings() {
 
 	m.ui.WriteString("Options: \n")
 
-	for _, option := range settingOptions {
-		m.ui.WriteString(option.name + ": " + option.value + "\n")
+	for _, option := range m.settings.options {
+		m.ui.WriteString("\t" + option.name + ": " + option.value + "\n")
 	}
 
-	m.listenInput("\n\nPress CtrlH to see helpful commands\n")
+	m.listenInput()
+	m.ui.WriteString("\n\nPress CtrlH to see helpful commands\n")
 }
 
 // Displays the users screen
@@ -111,11 +78,14 @@ func (m *model) displayUsers() {
 
 	m.ui.WriteString("Current Users: \n")
 
-	for _, user := range m.userList.users {
-		m.ui.WriteString(user.Name + ": " + user.Status + "\n")
+	for idx, user := range m.userList.users {
+		style := lipgloss.NewStyle().Foreground(lipgloss.Color(user.UserColor))
+
+		m.ui.WriteString("\t" + strconv.Itoa(idx+1) + ". " + style.Render(user.Name) + ": " + user.Status + "\n")
 	}
 
-	m.listenInput("\n\nPress CtrlH to see helpful commands\n")
+	m.listenInput()
+	m.ui.WriteString("\n\nPress CtrlH to see helpful commands\n")
 }
 
 // Displays the quit screen
@@ -128,7 +98,7 @@ func (m *model) displayQuit() {
 	}
 	m.ui.WriteString("Are you sure you want to log out? (Y/N)\n")
 
-	m.listenInput("")
+	m.listenInput()
 }
 
 // Displayss the help screen
@@ -137,10 +107,10 @@ func (m *model) displayHelp() {
 
 	m.ui.WriteString("Available Commands: \n")
 
-	for _, option := range helpOptions {
+	for _, option := range m.help.options {
 		m.ui.WriteString(option.name + ": " + option.value + "\n")
 	}
-	m.ui.WriteString("\n\nPress CtrlH to return to the chatroom\n")
+	m.ui.WriteString("\n\nPress CtrlH to return to " + m.prevScreen + " screen.\n")
 }
 
 // Displays all user messages
@@ -164,12 +134,8 @@ func (m *model) logUserMessages() {
 }
 
 // Listens for client input
-func (m *model) listenInput(action ...string) {
+func (m *model) listenInput() {
 	m.ui.WriteString("<-------------------------------------> \nMessage: \n")
 	// Listens for input
 	m.ui.WriteString(m.input.View())
-
-	if action[0] != "" {
-		m.ui.WriteString(action[0])
-	}
 }

@@ -31,13 +31,14 @@ type Message struct {
 
 // Structure of name message
 type Name struct {
-	Name string `json:"name"`
+	Name  string `json:"name"`
+	Color string `json:"color"`
 }
 
 // Structure of userList message
 type User struct {
-	Name      string          `json:"Name"`
-	Conn      *websocket.Conn `json:"Conn"`
-	Status    string          `json:"Status"`
-	UserColor string          `json:"UserColor"`
+	Name      string          `json:"name"`
+	Conn      *websocket.Conn `json:"conn"`
+	Status    string          `json:"status"`
+	UserColor string          `json:"userColor"`
 }

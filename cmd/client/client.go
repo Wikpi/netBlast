@@ -18,24 +18,20 @@ import (
 
 // Stores the application state
 type model struct {
-	cursor   int
-	screen   string
-	err      string
-	user     userInfo
+	user userInfo
+
+	help     help
 	settings settings
 	userList userList
-	input    textinput.Model
-	lock     sync.RWMutex
-	ui       strings.Builder
-}
 
-// Additional model for userlist screen
-type userList struct {
-	users []pkg.User
-}
-
-// Additional model for settings screen
-type settings struct {
+	cursor     int
+	screen     string
+	prevScreen string
+	err        string
+	style      lipgloss.Style
+	input      textinput.Model
+	lock       sync.RWMutex
+	ui         strings.Builder
 }
 
 // Stores user info
@@ -46,25 +42,51 @@ type userInfo struct {
 
 // Creates the initial model that holds default values
 func newClient() *model {
-	ti := textinput.New()
-	ti.Placeholder = "Your text"
-	ti.CharLimit = 256
-	ti.CursorStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#FFF"))
-	ti.Width = 30
-
-	ti.Focus()
-
-	color := getColor()
-	if color == "" {
-		color = "#FFF"
-	}
-
 	model := &model{
-		input:  ti,
+		input:  textinput.New(),
 		screen: "register",
 		user:   userInfo{},
 	}
-	model.user.user.UserColor = color
+
+	model.input.Placeholder = "Your text"
+	model.input.CharLimit = 256
+	model.input.CursorStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#FFF"))
+	model.input.Width = 30
+	model.style = lipgloss.NewStyle().Bold(true)
+
+	model.input.Focus()
+
+	model.user.user.UserColor = getColor()
+
+	model.help.options = []option{
+		{
+			name:  "Help",
+			value: "press -CtrlH to see help.",
+		},
+		{
+			name:  "Settings",
+			value: "press -CtrlX to enter settings.",
+		},
+		{
+			name:  "Users",
+			value: "press -CtrlC to see users.",
+		},
+		{
+			name:  "Quit",
+			value: "press -Esc to quit.",
+		},
+	}
+
+	model.settings.options = []option{
+		{
+			name:  "Color",
+			value: "-color, to update your user color.",
+		},
+		{
+			name:  "Name",
+			value: "change username. (Not finished)",
+		},
+	}
 
 	return model
 }
@@ -99,42 +121,18 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		switch key.Type {
 		case tea.KeyEsc:
-			m.screen = "quit"
+			if m.screen != "quit" {
+				m.prevScreen = m.screen
+				m.screen = "quit"
+			}
 
 		case tea.KeyCtrlH:
-			if m.screen == "register" {
-				return m, nil
-			}
-
-			if m.screen == "chat" {
-				m.screen = "help"
-				return m, nil
-			}
-			m.screen = "chat"
-			return m, nil
+			changeScreen(m, "help")
 		case tea.KeyCtrlX:
-			if m.screen == "register" {
-				return m, nil
-			}
-
-			if m.screen == "chat" {
-				m.screen = "settings"
-				return m, nil
-			}
-			m.screen = "chat"
-			return m, nil
+			changeScreen(m, "settings")
 		case tea.KeyCtrlC:
-			if m.screen == "register" {
-				return m, nil
-			}
-
-			if m.screen == "chat" {
-				m.screen = "users"
-				getUserList(m)
-				return m, nil
-			}
-			m.screen = "chat"
-			return m, nil
+			getUserList(m)
+			changeScreen(m, "users")
 		case tea.KeyEnter:
 			m.routeMessage()
 

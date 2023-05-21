@@ -36,7 +36,7 @@ func (m *model) routeMessage() {
 
 // Registers and establishes a websocket connection with the server
 func (m *model) handleRegister(value string) {
-	name := pkg.Name{Name: value}
+	name := pkg.Name{Name: value, Color: m.user.user.UserColor}
 
 	data := pkg.ParseToJson(name, pkg.ClRegister+pkg.BadParse)
 
@@ -106,7 +106,7 @@ func (m *model) handleQuit(value string) {
 		m.user.user.Status = "offline"
 		return
 	} else if value == "N" {
-		m.screen = "chat"
+		m.screen = m.prevScreen
 		return
 	}
 }
