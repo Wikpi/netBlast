@@ -11,17 +11,17 @@ import (
 // Routes to different UI screens
 func (m *model) routeScreen() {
 	switch m.screen {
-	case "register":
+	case registerScreen:
 		m.displayRegister()
-	case "chat":
+	case chatScreen:
 		m.displayChat()
-	case "settings":
+	case settingsScreen:
 		m.displaySettings()
-	case "users":
+	case usersScreen:
 		m.displayUsers()
-	case "quit":
+	case quitScreen:
 		m.displayQuit()
-	case "help":
+	case helpScreen:
 		m.displayHelp()
 	}
 }
@@ -30,7 +30,7 @@ func (m *model) routeScreen() {
 func (m *model) displayRegister() {
 	m.ui = strings.Builder{}
 
-	if m.user.user.Name == "" {
+	if m.user.Name == "" {
 		// Doesnt let thorugh, if name is invalid
 		if m.err == "" {
 			m.ui.WriteString("Name: \n")
@@ -92,7 +92,7 @@ func (m *model) displayUsers() {
 func (m *model) displayQuit() {
 	m.ui = strings.Builder{}
 
-	if m.user.user.Status == "offline" {
+	if m.user.Status == "offline" {
 		m.ui.WriteString("Logging Out! Be sure to come back! \n\n")
 		return
 	}
@@ -118,7 +118,7 @@ func (m *model) logUserMessages() {
 	var currentTime time.Time
 
 	// Displays previous messages
-	for _, msg := range m.user.messages {
+	for _, msg := range m.chat.messages {
 		// Username color styler
 		style := lipgloss.NewStyle().Foreground(lipgloss.Color(msg.Color))
 

@@ -1,10 +1,53 @@
 package client
 
-import "netBlast/pkg"
+import (
+	"netBlast/pkg"
+	"strings"
+	"sync"
 
+	"github.com/charmbracelet/bubbles/textinput"
+	"github.com/charmbracelet/lipgloss"
+)
+
+var (
+	welcomeScreen  = "welcome"
+	registerScreen = "register"
+	loginScreen    = "login"
+	chatScreen     = "chat"
+	settingsScreen = "settings"
+	helpScreen     = "help"
+	usersScreen    = "users"
+	quitScreen     = "quit"
+)
+
+// Stores the application state
+type model struct {
+	user pkg.User
+
+	chat     chat
+	help     help
+	settings settings
+	userList userList
+
+	cursor     int
+	screen     string
+	prevScreen string
+	err        string
+	style      lipgloss.Style
+	input      textinput.Model
+	lock       sync.RWMutex
+	ui         strings.Builder
+}
+
+// Option chassis
 type option struct {
 	name  string
 	value string
+}
+
+// Additional model for chat screen
+type chat struct {
+	messages []pkg.Message
 }
 
 // Additional model for userlist screen

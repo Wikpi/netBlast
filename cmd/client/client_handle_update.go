@@ -19,37 +19,37 @@ func (m *model) routeMessage() {
 	}
 
 	switch m.screen {
-	case "register":
+	case registerScreen:
 		m.handleRegister(value)
-	case "chat":
+	case chatScreen:
 		m.handleWrite(value)
-	case "settings":
+	case settingsScreen:
 		m.handleSettings(value)
-	case "users":
+	case usersScreen:
 		m.handleUserList(value)
-	case "quit":
+	case quitScreen:
 		m.handleQuit(value)
-	case "help":
+	case helpScreen:
 		m.handleHelp(value)
 	}
 }
 
 // Registers and establishes a websocket connection with the server
 func (m *model) handleRegister(value string) {
-	name := pkg.Name{Name: value, Color: m.user.user.UserColor}
+	name := pkg.Name{Name: value, Color: m.user.UserColor}
 
 	data := pkg.ParseToJson(name, pkg.ClRegister+pkg.BadParse)
 
 	res := handlePostRequest(data, "http://"+pkg.ServerURL+"/register", pkg.ClRegister)
 
 	if res.StatusCode == http.StatusAccepted {
-		m.user.user.Name = value
+		m.user.Name = value
 
 		c, _, err := websocket.Dial(context.Background(), "ws://"+pkg.ServerURL+"/message", nil)
 		pkg.HandleError(pkg.ClRegister+pkg.BadConn, err, 0)
-		m.user.user.Conn = c
+		m.user.Conn = c
 
-		m.user.user.Status = "online"
+		m.user.Status = "online"
 		m.screen = "chat"
 
 		go m.receiveNewMessages()
@@ -68,17 +68,17 @@ func (m *model) handleRegister(value string) {
 // Stores messages received from the websocket connection
 func (m *model) receiveNewMessages() {
 	for {
-		msg := pkg.WsRead(m.user.user.Conn, pkg.ClMessage+pkg.BadRead)
+		msg := pkg.WsRead(m.user.Conn, pkg.ClMessage+pkg.BadRead)
 
 		m.lock.Lock()
-		m.user.messages = append(m.user.messages, msg)
+		m.chat.messages = append(m.chat.messages, msg)
 		m.lock.Unlock()
 	}
 }
 
 // Writes user message to websocket connection
 func (m *model) handleWrite(value string) {
-	user := m.user.user
+	user := m.user
 
 	message := pkg.Message{
 		Username:    user.Name,
@@ -93,7 +93,7 @@ func (m *model) handleWrite(value string) {
 // Updates user settings
 func (m *model) handleSettings(value string) {
 	if strings.ToLower(value) == "color" {
-		m.user.user.UserColor = getColor()
+		m.user.UserColor = getColor()
 	}
 }
 
@@ -103,7 +103,7 @@ func (m *model) handleUserList(value string) {
 
 func (m *model) handleQuit(value string) {
 	if value == "Y" {
-		m.user.user.Status = "offline"
+		m.user.Status = "offline"
 		return
 	} else if value == "N" {
 		m.screen = m.prevScreen

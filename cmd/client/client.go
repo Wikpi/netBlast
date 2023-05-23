@@ -4,11 +4,7 @@ import (
 	"log"
 	"math/rand"
 	"net/http"
-	"strings"
-	"sync"
 	"time"
-
-	"netBlast/pkg"
 
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
@@ -16,36 +12,11 @@ import (
 	"nhooyr.io/websocket"
 )
 
-// Stores the application state
-type model struct {
-	user userInfo
-
-	help     help
-	settings settings
-	userList userList
-
-	cursor     int
-	screen     string
-	prevScreen string
-	err        string
-	style      lipgloss.Style
-	input      textinput.Model
-	lock       sync.RWMutex
-	ui         strings.Builder
-}
-
-// Stores user info
-type userInfo struct {
-	user     pkg.User
-	messages []pkg.Message
-}
-
 // Creates the initial model that holds default values
 func newClient() *model {
 	model := &model{
 		input:  textinput.New(),
 		screen: "register",
-		user:   userInfo{},
 	}
 
 	model.input.Placeholder = "Your text"
@@ -56,7 +27,7 @@ func newClient() *model {
 
 	model.input.Focus()
 
-	model.user.user.UserColor = getColor()
+	model.user.UserColor = getColor()
 
 	model.help.options = []option{
 		{
@@ -139,9 +110,10 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			// Resets input field
 			m.input.SetValue("")
 
-			if m.user.user.Status == "offline" {
-				if m.user.user.Conn != nil {
-					m.user.user.Conn.Close(websocket.StatusNormalClosure, "Connection Closed")
+			// Closes connection if user is logged out
+			if m.user.Status == "offline" {
+				if m.user.Conn != nil {
+					m.user.Conn.Close(websocket.StatusNormalClosure, "Connection Closed")
 				}
 
 				return m, tea.Quit

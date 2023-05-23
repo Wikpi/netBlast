@@ -1,10 +1,14 @@
 package server
 
 import (
+	"context"
 	"fmt"
 	"io/ioutil"
 	"net/http"
 	"netBlast/pkg"
+	"os"
+	"os/signal"
+	"time"
 
 	"nhooyr.io/websocket"
 )
@@ -77,4 +81,45 @@ func (s *serverInfo) sendUserList(w http.ResponseWriter, r *http.Request) {
 	users := pkg.ParseToJson(s.users, "Server/SendUsers: couldnt parse to json.")
 
 	w.Write(users)
+}
+
+// Shutdowns the server
+func (server *serverInfo) serverShutdown() {
+	signal.Notify(server.shutdown, os.Interrupt)
+	<-server.shutdown
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	err := server.s.Shutdown(ctx)
+	pkg.HandleError(pkg.Sv+pkg.BadClose, err, 1)
+}
+
+// Reads received messages
+func (s *serverInfo) readMessage(c *websocket.Conn) {
+	for {
+		message := pkg.WsRead(c, pkg.SvMessage+pkg.BadRead)
+		if (message == pkg.Message{}) {
+			if userIdx := findUser(c, s); userIdx != -1 {
+				fmt.Println("User left the server: ", s.users[userIdx].Name)
+				s.users = append(s.users[:userIdx], s.users[userIdx+1:]...)
+				return
+			}
+		}
+
+		s.lock.Lock()
+		s.messages = append(s.messages, message)
+		s.lock.Unlock()
+
+		s.writeToAll(message)
+	}
+}
+
+// Writes user message to all other connections
+func (s *serverInfo) writeToAll(message pkg.Message) {
+	s.lock.RLock()
+	for _, ic := range s.users {
+		pkg.WsWrite(ic.Conn, message, pkg.SvMessage+pkg.BadWrite)
+	}
+	s.lock.RUnlock()
 }
