@@ -108,7 +108,7 @@ func (m *model) displayHelp() {
 	m.ui.WriteString("Available Commands: \n")
 
 	for _, option := range m.help.options {
-		m.ui.WriteString(option.name + ": " + option.value + "\n")
+		m.ui.WriteString("\t" + option.name + ": " + option.value + "\n")
 	}
 	m.ui.WriteString("\n\nPress CtrlH to return to " + m.prevScreen + " screen.\n")
 }

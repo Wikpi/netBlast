@@ -92,13 +92,24 @@ func (m *model) handleWrite(value string) {
 
 // Updates user settings
 func (m *model) handleSettings(value string) {
-	if strings.ToLower(value) == "color" {
+	switch strings.ToLower(value) {
+	case "color":
 		m.user.UserColor = getColor()
+	case "username":
 	}
 }
 
 func (m *model) handleUserList(value string) {
-	return
+	commands := strings.Split(value, " ")
+
+	if commands[0] != "message" {
+		return
+	}
+	for _, name := range m.userList.users {
+		if commands[1] == name.Name {
+
+		}
+	}
 }
 
 func (m *model) handleQuit(value string) {

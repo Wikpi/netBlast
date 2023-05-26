@@ -92,18 +92,14 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		switch key.Type {
 		case tea.KeyEsc:
-			if m.screen != "quit" {
-				m.prevScreen = m.screen
-				m.screen = "quit"
-			}
-
+			changeScreen(m, quitScreen)
 		case tea.KeyCtrlH:
-			changeScreen(m, "help")
+			changeScreen(m, helpScreen)
 		case tea.KeyCtrlX:
-			changeScreen(m, "settings")
+			changeScreen(m, settingsScreen)
 		case tea.KeyCtrlC:
 			getUserList(m)
-			changeScreen(m, "users")
+			changeScreen(m, usersScreen)
 		case tea.KeyEnter:
 			m.routeMessage()
 
