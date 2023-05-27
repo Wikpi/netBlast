@@ -99,15 +99,22 @@ func (m *model) handleSettings(value string) {
 	}
 }
 
+// Handles private user messaging
 func (m *model) handleUserList(value string) {
 	commands := strings.Split(value, " ")
 
 	if commands[0] != "message" {
 		return
 	}
-	for _, name := range m.userList.users {
-		if commands[1] == name.Name {
+	for _, user := range m.userList.users {
+		if commands[1] == user.Name {
+			message := pkg.Message{
+				Username: m.user.Name,
+				Message:  strings.Join(commands[2:], ","),
+				Color:    m.user.UserColor,
+			}
 
+			pkg.WsWrite(user.Conn, message, pkg.SvMessage+pkg.BadWrite)
 		}
 	}
 }

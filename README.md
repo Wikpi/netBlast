@@ -27,7 +27,18 @@ The Server side is a simple http server host, which is further upgraded by [nhoo
 **Error handling**
 * All errors are checked and recorded in respective logs files.
 
-**Clean layout**
+**Clean project layout**
+* Everything is stored according to the [Standard Go Project Layout](https://github.com/golang-standards/project-layout) to ensure clean and fast interaction.
+
+**Precise unit testing**
+* All standalone functions are tested to ensure optimal working environment
+
+**Vast options**
+* Help screen - lists all the commands
+* Chat screen - default room where users chat
+* Settings screen - lists settings and the option to change them
+* User list screen - lists all users (offline/online) and the opton to private message them
+
 
 # Running / Installation
 To view the project locally, clone the repository:
@@ -38,7 +49,7 @@ git clone https://github.com/Wikpi/netBlast
 
 Afterwards to make the executables, which you can find and launch seperatly in the `./build` (if it is not present, the directory will be automatically created), run:
 ```
-make all
+make all (not fully implemented)
 ```
 
 Or run the server in your cmd:
@@ -56,11 +67,15 @@ make client
 
 **pkg** - stores additional packages used throughout the project.
 
-**build** - path, in which the build executables are made and stored, `./server` for server side app and `./client` for client.
+**build** - creates a new directory, which stores build executables.
 
 **assets** - random assortment of media, used for decorating the project page.
 
 **docs** - short documentation of the project.
+
+**logs** - creates a new directory, which stores errors and logs.
+
+**tools** - stores different tools used throughout the project.
 
 #
 
