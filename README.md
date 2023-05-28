@@ -23,22 +23,25 @@ The Server side is a simple http server host, which is further upgraded by [nhoo
 * Chat room is only shown to registered users.
 * Messages are accompanied by a timestamp and seperated by full date, if they were written on a different day.
 * Every name is unique and has a randomly picked color to stand out from the others ([Autolycus](https://github.com/Wikpi/Autolycus)).
+* Clean communication from the server.
 
-**Error handling**
+**Public or private messaging**
+* Supports normal public messaging in the chat room and private messaging between few users.
+
+**Extensive error handling**
 * All errors are checked and recorded in respective logs files.
 
 **Clean project layout**
 * Everything is stored according to the [Standard Go Project Layout](https://github.com/golang-standards/project-layout) to ensure clean and fast interaction.
 
 **Precise unit testing**
-* All standalone functions are tested to ensure optimal working environment
+* All standalone functions are tested to ensure optimal working environment.
 
-**Vast options**
-* Help screen - lists all the commands
-* Chat screen - default room where users chat
-* Settings screen - lists settings and the option to change them
-* User list screen - lists all users (offline/online) and the opton to private message them
-
+**Vast variety of options**
+* Help screen - lists all the commands.
+* Chat screen - default room where users chat.
+* Settings screen - lists settings and the option to change them.
+* User list screen - lists all users (offline/online) and the opton to private message them.
 
 # Running / Installation
 To view the project locally, clone the repository:
