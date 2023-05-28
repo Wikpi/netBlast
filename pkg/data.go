@@ -27,6 +27,7 @@ type Message struct {
 	Message     string    `json:"message"`
 	MessageTime time.Time `json:"messageTime"`
 	Color       string    `json:"color"`
+	MessageType string    `json:"messageType"`
 }
 
 // Structure of name message

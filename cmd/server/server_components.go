@@ -30,7 +30,7 @@ func checkName(name string, s *serverInfo) (string, int) {
 }
 
 // Finds name in user slice
-func findUser(key interface{}, s *serverInfo) int {
+func findUser(key any, s *serverInfo) int {
 	for idx, user := range s.users {
 		if user.Name == key || user.Conn == key {
 			return idx

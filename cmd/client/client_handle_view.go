@@ -54,7 +54,9 @@ func (m *model) displayChat() {
 
 	m.logUserMessages()
 
-	m.listenInput()
+	m.ui.WriteString("<-------------------------------------> \nMessage: \n")
+	// Listens for input
+	m.ui.WriteString(m.input.View())
 	m.ui.WriteString("\n\nPress CtrlH to see helpful commands\n")
 }
 
@@ -68,7 +70,14 @@ func (m *model) displaySettings() {
 		m.ui.WriteString("\t" + option.name + ": " + option.value + "\n")
 	}
 
-	m.listenInput()
+	m.ui.WriteString("<-------------------------------------> \n")
+	if m.settings.err != "" {
+		m.ui.WriteString(m.settings.err + " Try again: \n")
+	} else {
+		m.ui.WriteString("Command: \n")
+	}
+
+	m.ui.WriteString(m.input.View())
 	m.ui.WriteString("\n\nPress CtrlH to see helpful commands\n")
 }
 
@@ -81,10 +90,22 @@ func (m *model) displayUsers() {
 	for idx, user := range m.userList.users {
 		style := lipgloss.NewStyle().Foreground(lipgloss.Color(user.UserColor))
 
+		if user.Name == m.user.Name {
+			m.ui.WriteString("\t" + strconv.Itoa(idx+1) + ". " + style.Render(user.Name) + "(You): " + user.Status + "\n")
+			continue
+		}
+
 		m.ui.WriteString("\t" + strconv.Itoa(idx+1) + ". " + style.Render(user.Name) + ": " + user.Status + "\n")
 	}
 
-	m.listenInput()
+	m.ui.WriteString("\nPrivate message a user: message [userName] [userMessage]\n")
+	m.ui.WriteString("<-------------------------------------> \n")
+	if m.userList.err != "" {
+		m.ui.WriteString(m.userList.err + " Try again: \n")
+	} else {
+		m.ui.WriteString("Message: \n")
+	}
+	m.ui.WriteString(m.input.View())
 	m.ui.WriteString("\n\nPress CtrlH to see helpful commands\n")
 }
 
@@ -98,7 +119,9 @@ func (m *model) displayQuit() {
 	}
 	m.ui.WriteString("Are you sure you want to log out? (Y/N)\n")
 
-	m.listenInput()
+	m.ui.WriteString("<-------------------------------------> \nCommand: \n")
+	// Listens for input
+	m.ui.WriteString(m.input.View())
 }
 
 // Displayss the help screen
@@ -129,13 +152,11 @@ func (m *model) logUserMessages() {
 			m.ui.WriteString(currentTime.Format("15:04") + "\n")
 		}
 
-		m.ui.WriteString(style.Render(msg.Username) + ": " + msg.Message + "\n")
+		switch msg.MessageType {
+		case "public":
+			m.ui.WriteString(style.Render(msg.Username) + ": " + msg.Message + "\n")
+		case "private":
+			m.ui.WriteString("PRIVATE MESSAGE from " + style.Render(msg.Username) + ": " + msg.Message + "\n")
+		}
 	}
-}
-
-// Listens for client input
-func (m *model) listenInput() {
-	m.ui.WriteString("<-------------------------------------> \nMessage: \n")
-	// Listens for input
-	m.ui.WriteString(m.input.View())
 }

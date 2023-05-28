@@ -8,6 +8,7 @@ import (
 	"netBlast/pkg"
 	"os"
 	"os/signal"
+	"strings"
 	"time"
 
 	"nhooyr.io/websocket"
@@ -81,6 +82,29 @@ func (s *serverInfo) sendUserList(w http.ResponseWriter, r *http.Request) {
 	users := pkg.ParseToJson(s.users, "Server/SendUsers: couldnt parse to json.")
 
 	w.Write(users)
+}
+
+func (s *serverInfo) directMessage(w http.ResponseWriter, r *http.Request) {
+	body, err := ioutil.ReadAll(r.Body)
+	pkg.HandleError(pkg.SvRegister+pkg.BadRead, err, 1)
+
+	msg := pkg.Message{}
+
+	pkg.ParseFromJson(body, &msg, "bad parse server")
+
+	command := strings.Split(msg.Message, " ")
+
+	message := pkg.Message{
+		Username:    msg.Username,
+		Message:     strings.Join(command[1:], " "),
+		MessageTime: msg.MessageTime,
+		Color:       msg.Color,
+		MessageType: msg.MessageType,
+	}
+
+	s.lock.RLock()
+	pkg.WsWrite(s.users[findUser(command[0], s)].Conn, message, "")
+	s.lock.RUnlock()
 }
 
 // Shutdowns the server

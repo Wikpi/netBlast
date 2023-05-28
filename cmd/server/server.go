@@ -30,6 +30,8 @@ func (server *serverInfo) handleServer() {
 	server.mux.HandleFunc(sessionHandler, server.handleSession)
 	// Give connected user list
 	server.mux.HandleFunc(userListHandler, server.sendUserList)
+	// Send a dm from one user to another
+	server.mux.HandleFunc(dmHandler, server.directMessage)
 
 	//go server.serverShutdown()
 	/* not working? */

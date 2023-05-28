@@ -12,6 +12,7 @@ var (
 	registerHandler = "/register"
 	sessionHandler  = "/message"
 	userListHandler = "/userList"
+	dmHandler       = "/dmUser"
 )
 
 // Server struct that holds all the essential info

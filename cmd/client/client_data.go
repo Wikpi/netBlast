@@ -14,6 +14,7 @@ var (
 	registerScreen = "register"
 	loginScreen    = "login"
 	chatScreen     = "chat"
+	dmScreen       = "dms"
 	settingsScreen = "settings"
 	helpScreen     = "help"
 	usersScreen    = "users"
@@ -48,16 +49,19 @@ type option struct {
 // Additional model for chat screen
 type chat struct {
 	messages []pkg.Message
+	dms      []pkg.Message
 }
 
 // Additional model for userlist screen
 type userList struct {
 	users []pkg.User
+	err   string
 }
 
 // Additional model for settings screen
 type settings struct {
 	options []option
+	err     string
 }
 
 // Additional model for help screen

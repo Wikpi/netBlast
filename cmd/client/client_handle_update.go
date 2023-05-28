@@ -85,6 +85,7 @@ func (m *model) handleWrite(value string) {
 		Message:     value,
 		MessageTime: time.Now(),
 		Color:       user.UserColor,
+		MessageType: "public",
 	}
 
 	pkg.WsWrite(user.Conn, message, pkg.ClMessage+pkg.BadWrite)
@@ -96,6 +97,8 @@ func (m *model) handleSettings(value string) {
 	case "color":
 		m.user.UserColor = getColor()
 	case "username":
+	default:
+		m.settings.err = "Invalid command."
 	}
 }
 
@@ -104,19 +107,31 @@ func (m *model) handleUserList(value string) {
 	commands := strings.Split(value, " ")
 
 	if commands[0] != "message" {
+		m.userList.err = "Invalid command."
+		return
+	}
+	if commands[1] == m.user.Name {
+		m.userList.err = "Can't write to this person."
 		return
 	}
 	for _, user := range m.userList.users {
 		if commands[1] == user.Name {
 			message := pkg.Message{
-				Username: m.user.Name,
-				Message:  strings.Join(commands[2:], ","),
-				Color:    m.user.UserColor,
+				Username:    m.user.Name,
+				Message:     strings.Join(commands[1:], " "),
+				MessageTime: time.Now(),
+				Color:       m.user.UserColor,
+				MessageType: "private",
 			}
 
-			pkg.WsWrite(user.Conn, message, pkg.SvMessage+pkg.BadWrite)
+			data := pkg.ParseToJson(message, "new json error")
+
+			res := handlePostRequest(data, "http://"+pkg.ServerURL+"/dmUser", "bad GET request")
+			res.Body.Close()
+			return
 		}
 	}
+	m.userList.err = "User not found."
 }
 
 func (m *model) handleQuit(value string) {
