@@ -36,7 +36,7 @@ func getUserList(m *model) {
 // Handles POST request to server
 func handlePostRequest(data []byte, URL string, incomingErr string) *http.Response {
 	req, err := http.NewRequest(http.MethodPost, URL, bytes.NewBuffer(data))
-	pkg.HandleError(incomingErr+pkg.BadReq, err, 0)
+	pkg.HandleError(incomingErr+pkg.BadReq, err, 1)
 
 	res, err := http.DefaultClient.Do(req)
 	pkg.HandleError(incomingErr+pkg.BadRes, err, 0)

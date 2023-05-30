@@ -118,9 +118,10 @@ func (m *model) handleUserList(value string) {
 		if commands[1] == user.Name {
 			message := pkg.Message{
 				Username:    m.user.Name,
-				Message:     strings.Join(commands[1:], " "),
+				Message:     strings.Join(commands[2:], " "),
 				MessageTime: time.Now(),
 				Color:       m.user.UserColor,
+				Receiver:    commands[1],
 				MessageType: "private",
 			}
 
@@ -128,6 +129,8 @@ func (m *model) handleUserList(value string) {
 
 			res := handlePostRequest(data, "http://"+pkg.ServerURL+"/dmUser", "bad GET request")
 			res.Body.Close()
+
+			m.userList.err = ""
 			return
 		}
 	}

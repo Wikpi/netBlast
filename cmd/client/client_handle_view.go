@@ -156,6 +156,11 @@ func (m *model) logUserMessages() {
 		case "public":
 			m.ui.WriteString(style.Render(msg.Username) + ": " + msg.Message + "\n")
 		case "private":
+			if msg.Receiver != m.user.Name {
+				style := lipgloss.NewStyle().Foreground(lipgloss.Color(msg.ReceiverColor))
+				m.ui.WriteString("PRIVATE MESSAGE to " + style.Render(msg.Receiver) + ": " + msg.Message + "\n")
+				continue
+			}
 			m.ui.WriteString("PRIVATE MESSAGE from " + style.Render(msg.Username) + ": " + msg.Message + "\n")
 		}
 	}

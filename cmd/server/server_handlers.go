@@ -8,7 +8,6 @@ import (
 	"netBlast/pkg"
 	"os"
 	"os/signal"
-	"strings"
 	"time"
 
 	"nhooyr.io/websocket"
@@ -88,22 +87,17 @@ func (s *serverInfo) directMessage(w http.ResponseWriter, r *http.Request) {
 	body, err := ioutil.ReadAll(r.Body)
 	pkg.HandleError(pkg.SvRegister+pkg.BadRead, err, 1)
 
-	msg := pkg.Message{}
+	message := pkg.Message{}
 
-	pkg.ParseFromJson(body, &msg, "bad parse server")
+	pkg.ParseFromJson(body, &message, "bad parse server")
 
-	command := strings.Split(msg.Message, " ")
-
-	message := pkg.Message{
-		Username:    msg.Username,
-		Message:     strings.Join(command[1:], " "),
-		MessageTime: msg.MessageTime,
-		Color:       msg.Color,
-		MessageType: msg.MessageType,
-	}
+	message.ReceiverColor = s.users[findUser(message.Receiver, s)].UserColor
 
 	s.lock.RLock()
-	pkg.WsWrite(s.users[findUser(command[0], s)].Conn, message, "")
+	pkg.WsWrite(s.users[findUser(message.Receiver, s)].Conn, message, "")
+	s.lock.RUnlock()
+	s.lock.RLock()
+	pkg.WsWrite(s.users[findUser(message.Username, s)].Conn, message, "")
 	s.lock.RUnlock()
 }
 
