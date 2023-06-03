@@ -9,7 +9,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-var (
+const (
 	welcomeScreen  = "welcome"
 	registerScreen = "register"
 	loginScreen    = "login"

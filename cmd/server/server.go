@@ -6,14 +6,19 @@ import (
 	"os"
 
 	"netBlast/pkg"
+	"netBlast/tools/database"
 )
 
 // Creates server with default parameters
 func newServer(sd chan os.Signal) *serverInfo {
 	serverInfo := &serverInfo{}
 	serverInfo.s = http.Server{Addr: pkg.ServerURL, Handler: nil}
+
 	serverInfo.mux = http.NewServeMux()
+
 	serverInfo.shutdown = sd
+
+	serverInfo.db = database.OpenDB()
 
 	return serverInfo
 }

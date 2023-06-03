@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"netBlast/pkg"
+	"netBlast/tools/database"
 	"os"
 	"os/signal"
 	"time"
@@ -50,7 +51,8 @@ func (s *serverInfo) registerUser(w http.ResponseWriter, r *http.Request) {
 		}
 
 		s.lock.Lock()
-		s.users = append(s.users, client)
+		//s.users = append(s.users, client)
+		database.InsertDBUser(s.db, client)
 		s.lock.Unlock()
 	}
 
@@ -68,11 +70,6 @@ func (s *serverInfo) handleSession(w http.ResponseWriter, r *http.Request) {
 
 	defer c.Close(websocket.StatusInternalError, "")
 
-	s.lock.Lock()
-	s.users[len(s.users)-1].Conn = c
-	s.users[len(s.users)-1].Status = "Online"
-	s.lock.Unlock()
-
 	s.readMessage(c)
 }
 
@@ -83,6 +80,7 @@ func (s *serverInfo) sendUserList(w http.ResponseWriter, r *http.Request) {
 	w.Write(users)
 }
 
+// Sends direct message to the recipient and the sender
 func (s *serverInfo) directMessage(w http.ResponseWriter, r *http.Request) {
 	body, err := ioutil.ReadAll(r.Body)
 	pkg.HandleError(pkg.SvRegister+pkg.BadRead, err, 1)
@@ -118,11 +116,21 @@ func (s *serverInfo) readMessage(c *websocket.Conn) {
 	for {
 		message := pkg.WsRead(c, pkg.SvMessage+pkg.BadRead)
 		if (message == pkg.Message{}) {
-			if userIdx := findUser(c, s); userIdx != -1 {
-				fmt.Println("User left the server: ", s.users[userIdx].Name)
-				s.users = append(s.users[:userIdx], s.users[userIdx+1:]...)
-				return
-			}
+			name := database.FindDBUserInfo(s.db, "name", "conn", c)
+
+			fmt.Println("User left the server: ", name)
+
+			s.lock.Lock()
+			database.UpdateDBUserInfo(s.db, name, "status", "Offline")
+			s.lock.Unlock()
+			//s.users = append(s.users[:userIdx], s.users[userIdx+1:]...)
+			return
+		}
+
+		if !database.CheckDBUserConn(s.db, message.Username) {
+			s.lock.Lock()
+			database.UpdateDBUserInfo(s.db, message.Username, "conn", c)
+			s.lock.Unlock()
 		}
 
 		s.lock.Lock()
