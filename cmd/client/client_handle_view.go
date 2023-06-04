@@ -85,17 +85,17 @@ func (m *model) displaySettings() {
 func (m *model) displayUsers() {
 	m.ui = strings.Builder{}
 
-	m.ui.WriteString("Current Users: \n")
+	m.ui.WriteString("Current Users (" + strconv.Itoa(len(m.userList.users)) + "): \n")
 
-	for idx, user := range m.userList.users {
+	for _, user := range m.userList.users {
 		style := lipgloss.NewStyle().Foreground(lipgloss.Color(user.UserColor))
 
 		if user.Name == m.user.Name {
-			m.ui.WriteString("\t" + strconv.Itoa(idx+1) + ". " + style.Render(user.Name) + "(You): " + user.Status + "\n")
+			m.ui.WriteString("\t" + strconv.Itoa(user.Id) + ". " + style.Render(user.Name) + "(You): " + user.Status + "\n")
 			continue
 		}
 
-		m.ui.WriteString("\t" + strconv.Itoa(idx+1) + ". " + style.Render(user.Name) + ": " + user.Status + "\n")
+		m.ui.WriteString("\t" + strconv.Itoa(user.Id) + ". " + style.Render(user.Name) + ": " + user.Status + "\n")
 	}
 
 	m.ui.WriteString("\nPrivate message a user: message [userName] [userMessage]\n")

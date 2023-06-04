@@ -75,23 +75,21 @@ func (s *serverInfo) handleSession(w http.ResponseWriter, r *http.Request) {
 
 // Sends back the list of users
 func (s *serverInfo) sendUserList(w http.ResponseWriter, r *http.Request) {
-	users := make(map[int]pkg.User)
+	users := []pkg.User{}
 
-	userCnt, err := strconv.Atoi(database.FindDBUserInfo(s.db, "MAX(id)", "name", "name"))
+	userCnt, err := strconv.Atoi(database.QueryDB(s.db, "SELECT MAX(id) FROM users;"))
 	if err != nil {
-		pkg.LogError(err)
-		fmt.Println(err.Error())
-		return
+		panic(err.Error())
 	}
 
 	for x := 0; x < userCnt; x++ {
-		users[x+1] = pkg.User{
+		users = append(users, pkg.User{
+			Id:        x + 1,
 			Name:      database.FindDBUserInfo(s.db, "name", "id", x+1),
 			UserColor: database.FindDBUserInfo(s.db, "color", "id", x+1),
 			Status:    database.FindDBUserInfo(s.db, "status", "id", x+1),
-		}
+		})
 	}
-
 	userList := pkg.ParseToJson(users, "Couldnt parse to json.")
 
 	w.Write(userList)
@@ -106,13 +104,24 @@ func (s *serverInfo) directMessage(w http.ResponseWriter, r *http.Request) {
 
 	pkg.ParseFromJson(body, &message, "bad parse server")
 
-	message.ReceiverColor = s.users[findUser(message.Receiver, s)].UserColor
+	message.ReceiverColor = database.FindDBUserInfo(s.db, "color", "name", message.Receiver)
+
+	var recConn, userConn *websocket.Conn
+
+	for conn, value := range s.connections {
+		if value == message.Receiver {
+			recConn = conn
+		}
+		if value == message.Username {
+			userConn = conn
+		}
+	}
 
 	s.lock.RLock()
-	pkg.WsWrite(s.users[findUser(message.Receiver, s)].Conn, message, "")
+	pkg.WsWrite(recConn, message, "")
 	s.lock.RUnlock()
 	s.lock.RLock()
-	pkg.WsWrite(s.users[findUser(message.Username, s)].Conn, message, "")
+	pkg.WsWrite(userConn, message, "")
 	s.lock.RUnlock()
 }
 

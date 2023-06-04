@@ -2,6 +2,7 @@ package server
 
 import (
 	"net/http"
+	"netBlast/tools/database"
 	"unicode/utf8"
 )
 
@@ -17,7 +18,8 @@ func checkName(name string, s *serverInfo) (string, int) {
 		errMsg = "Name too long. "
 		statusCode = http.StatusNotAcceptable
 	} else {
-		if user := findUser(name, s); user == -1 {
+
+		if name := database.FindDBUserInfo(s.db, "name", "name", name); name == "" {
 			errMsg = ""
 			statusCode = http.StatusAccepted
 		} else {
@@ -27,14 +29,4 @@ func checkName(name string, s *serverInfo) (string, int) {
 	}
 
 	return errMsg, statusCode
-}
-
-// Finds name in user slice
-func findUser(key any, s *serverInfo) int {
-	for idx, user := range s.users {
-		if user.Name == key || user.Conn == key {
-			return idx
-		}
-	}
-	return -1
 }

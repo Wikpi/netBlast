@@ -27,7 +27,7 @@ func getUserList(m *model) {
 	pkg.HandleError(pkg.Cl+pkg.BadRead, err)
 
 	m.lock.Lock()
-	pkg.ParseFromJson(resBody, &m.userList.users, pkg.Cl+pkg.BadParse)
+	pkg.ParseFromJson(resBody, &m.userList.users, "Couldnt parse")
 	m.lock.Unlock()
 
 	res.Body.Close()

@@ -72,6 +72,10 @@ func InsertDBUser(db *sql.DB, user pkg.User) {
 
 // Deletes user from database
 func DeleteDBUser(db *sql.DB, username string) {
+	if !PingDB(db) {
+		return
+	}
+
 	_, err := db.Exec("DELETE FROM users WHERE name = ?", username)
 	if err != nil {
 		pkg.LogError(err)
@@ -82,6 +86,10 @@ func DeleteDBUser(db *sql.DB, username string) {
 
 // Updates user info
 func UpdateDBUserInfo(db *sql.DB, info string, arg string, infoOption any, argOption any) {
+	if !PingDB(db) {
+		return
+	}
+
 	var err error
 
 	_, err = db.Exec("UPDATE users SET "+info+" = ? WHERE "+arg+" = ?", infoOption, argOption)
@@ -94,17 +102,44 @@ func UpdateDBUserInfo(db *sql.DB, info string, arg string, infoOption any, argOp
 
 // FInds user info
 func FindDBUserInfo(db *sql.DB, info string, arg string, option any) string {
-	var data string
-	var err error
-
-	err = db.QueryRow("SELECT "+info+" FROM users WHERE "+arg+" = ? LIMIT 1", option).Scan(&data)
-	fmt.Println(data)
-	if err != nil {
-		pkg.LogError(err)
-		fmt.Println(err.Error())
+	if !PingDB(db) {
 		return ""
 	}
-	return data
+	var data string
+	var id int
+	var err error
+
+	result := db.QueryRow("SELECT "+info+" FROM users WHERE "+arg+" = ? LIMIT 1", option)
+
+	if info == "id" {
+		err = result.Scan(&id)
+	} else {
+		err = result.Scan(&data)
+	}
+
+	if err != nil {
+		return ""
+	}
+
+	return fmt.Sprintf("%+v", data)
+}
+
+// Performs specific queries to the database
+func QueryDB(db *sql.DB, query string) string {
+	if !PingDB(db) {
+		return ""
+	}
+	var data any
+	err := db.QueryRow(query).Scan(&data)
+
+	if err != nil || data == nil {
+		return ""
+	}
+	var returnData any
+
+	pkg.ParseFromJson(data.([]byte), &returnData, "baddddd")
+
+	return fmt.Sprintf("%+v", returnData)
 }
 
 // Check if table is available
