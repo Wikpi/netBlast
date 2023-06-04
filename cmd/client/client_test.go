@@ -1,6 +1,7 @@
 package client
 
 import (
+	"fmt"
 	"io/ioutil"
 	"os"
 	"syscall"
@@ -23,7 +24,10 @@ func Test_UseAutolycus(t *testing.T) {
 	scrapper.Scrape()
 
 	body, err := ioutil.ReadFile("../.." + pkg.Scrapper + "/colors.txt")
-	pkg.HandleError(pkg.Cl+pkg.BadOpen, err, 0)
+	if err != nil {
+		pkg.LogError(err)
+		fmt.Println(pkg.ClTest + pkg.BadRead)
+	}
 
 	assert.NotEmpty(t, body)
 }

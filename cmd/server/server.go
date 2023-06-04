@@ -2,6 +2,7 @@ package server
 
 import (
 	"fmt"
+	"log"
 	"net/http"
 	"os"
 
@@ -47,7 +48,10 @@ func (server *serverInfo) handleServer() {
 	// err := server.s.ListenAndServe()
 
 	err := http.ListenAndServe(pkg.ServerURL, server.mux)
-	pkg.HandleError(pkg.Sv, err, 0)
+	if err != nil {
+		pkg.LogError(err)
+		log.Fatal(pkg.Sv + pkg.BadOpen)
+	}
 }
 
 func Server(shutdown chan os.Signal) {

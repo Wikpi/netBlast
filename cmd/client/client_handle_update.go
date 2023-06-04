@@ -2,6 +2,7 @@ package client
 
 import (
 	"context"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"netBlast/pkg"
@@ -38,7 +39,7 @@ func (m *model) routeMessage() {
 func (m *model) handleRegister(value string) {
 	name := pkg.Name{Name: value, Color: m.user.UserColor}
 
-	data := pkg.ParseToJson(name, pkg.ClRegister+pkg.BadParse)
+	data := pkg.ParseToJson(name, pkg.ClRegister+pkg.BadParseTo)
 
 	res := handlePostRequest(data, "http://"+pkg.ServerURL+"/register", pkg.ClRegister)
 
@@ -46,7 +47,12 @@ func (m *model) handleRegister(value string) {
 		m.user.Name = value
 
 		c, _, err := websocket.Dial(context.Background(), "ws://"+pkg.ServerURL+"/message", nil)
-		pkg.HandleError(pkg.ClRegister+pkg.BadConn, err, 0)
+		if err != nil {
+			pkg.LogError(err)
+			fmt.Println(pkg.ClRegister + pkg.BadConn)
+			m.err = "Couldnt connect."
+			return
+		}
 		m.user.Conn = c
 
 		m.user.Status = "online"
@@ -58,9 +64,12 @@ func (m *model) handleRegister(value string) {
 
 	// Gives an error if registration failed
 	resBody, err := ioutil.ReadAll(res.Body)
-	pkg.HandleError(pkg.ClRegister+pkg.BadRead, err, 0)
+	if err != nil {
+		pkg.LogError(err)
+		fmt.Println(pkg.ClRegister + pkg.BadRead)
+	}
 
-	pkg.ParseFromJson(resBody, &m.err, pkg.ClRegister+pkg.BadParse)
+	pkg.ParseFromJson(resBody, &m.err, pkg.ClRegister+pkg.BadParseFrom)
 
 	res.Body.Close()
 }
@@ -116,6 +125,11 @@ func (m *model) handleUserList(value string) {
 	}
 	for _, user := range m.userList.users {
 		if commands[1] == user.Name {
+			if user.Status != "Online" {
+				m.userList.err = "That person is offline."
+				return
+			}
+
 			message := pkg.Message{
 				Username:    m.user.Name,
 				Message:     strings.Join(commands[2:], " "),

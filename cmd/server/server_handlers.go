@@ -33,11 +33,14 @@ func ping(w http.ResponseWriter, r *http.Request) {
 // Registers new users
 func (s *serverInfo) registerUser(w http.ResponseWriter, r *http.Request) {
 	body, err := ioutil.ReadAll(r.Body)
-	pkg.HandleError(pkg.SvRegister+pkg.BadRead, err, 1)
+	if err != nil {
+		pkg.LogError(err)
+		fmt.Println(pkg.SvRegister + pkg.BadRead)
+	}
 
 	name := pkg.Name{}
 
-	pkg.ParseFromJson(body, &name, pkg.SvRegister+pkg.BadParse)
+	pkg.ParseFromJson(body, &name, pkg.SvRegister+pkg.BadParseFrom)
 
 	s.lock.Lock()
 	errMsg, status := checkName(name.Name, s)
@@ -58,7 +61,7 @@ func (s *serverInfo) registerUser(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(status)
 	if errMsg != "" {
-		data := pkg.ParseToJson(errMsg, pkg.SvRegister+pkg.BadParse)
+		data := pkg.ParseToJson(errMsg, pkg.SvRegister+pkg.BadParseTo)
 		w.Write(data)
 	}
 }
@@ -66,7 +69,10 @@ func (s *serverInfo) registerUser(w http.ResponseWriter, r *http.Request) {
 // Handle websocket connection
 func (s *serverInfo) handleSession(w http.ResponseWriter, r *http.Request) {
 	c, err := websocket.Accept(w, r, nil)
-	pkg.HandleError(pkg.SvMessage+pkg.BadConn, err, 1)
+	if err != nil {
+		pkg.LogError(err)
+		fmt.Println(pkg.SvMessage + pkg.BadConn)
+	}
 
 	defer c.Close(websocket.StatusInternalError, "")
 
@@ -102,11 +108,14 @@ func (s *serverInfo) sendUserList(w http.ResponseWriter, r *http.Request) {
 // Sends direct message to the recipient and the sender
 func (s *serverInfo) directMessage(w http.ResponseWriter, r *http.Request) {
 	body, err := ioutil.ReadAll(r.Body)
-	pkg.HandleError(pkg.SvRegister+pkg.BadRead, err, 1)
+	if err != nil {
+		pkg.LogError(err)
+		fmt.Println(pkg.SvRegister + pkg.BadRead)
+	}
 
 	message := pkg.Message{}
 
-	pkg.ParseFromJson(body, &message, "bad parse server")
+	pkg.ParseFromJson(body, &message, pkg.SvList+pkg.BadParseFrom)
 
 	message.ReceiverColor = database.FindDBUserInfo(s.db, "color", "name", message.Receiver)
 
@@ -138,7 +147,10 @@ func (server *serverInfo) serverShutdown() {
 	defer cancel()
 
 	err := server.s.Shutdown(ctx)
-	pkg.HandleError(pkg.Sv+pkg.BadClose, err, 1)
+	if err != nil {
+		pkg.LogError(err)
+		fmt.Println(pkg.Sv + pkg.BadClose)
+	}
 }
 
 // Reads received messages

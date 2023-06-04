@@ -2,6 +2,7 @@ package pkg
 
 import (
 	"context"
+	"fmt"
 
 	"nhooyr.io/websocket"
 	"nhooyr.io/websocket/wsjson"
@@ -21,5 +22,8 @@ func WsRead(conn *websocket.Conn, errMsg string) Message {
 // Write message content to connection
 func WsWrite(conn *websocket.Conn, message Message, errMsg string) {
 	err := wsjson.Write(context.Background(), conn, message)
-	HandleError(errMsg, err, 1)
+	if err != nil {
+		LogError(err)
+		fmt.Println(errMsg)
+	}
 }

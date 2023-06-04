@@ -4,6 +4,8 @@ package pkg
 var (
 	ClRegister = "Client/Register: "
 	ClMessage  = "Client/Message: "
+	ClTest     = "Client/Test: "
+	ClList     = "Client/List: "
 	Cl         = "Client: "
 )
 
@@ -11,17 +13,25 @@ var (
 var (
 	SvRegister = "Server/Register: "
 	SvMessage  = "Server/Message: "
+	SvTest     = "server/Test: "
+	SvList     = "server/List: "
 	Sv         = "Server: "
+)
+
+var (
+	DB = "Database: "
 )
 
 // Suffixes - error reason
 var (
-	BadParse = "couldnt parse to / from json."
-	BadReq   = "couldnt create request."
-	BadRes   = "couldnt receive request."
-	BadConn  = "couldnt connect websocket."
-	BadRead  = "couldnt read response body."
-	BadWrite = "couldnt write body."
-	BadOpen  = "couldnt open file."
-	BadClose = "couldnt close server."
+	BadParseTo   = "couldnt parse to json."
+	BadParseFrom = "couldnt parse from json."
+	BadReq       = "couldnt create request."
+	BadRes       = "couldnt receive request."
+	BadConn      = "couldnt connect."
+	BadRead      = "couldnt read response body."
+	BadWrite     = "couldnt write body."
+	BadOpen      = "couldnt open."
+	BadClose     = "couldnt close."
+	BadDir       = "couldnt get directory."
 )

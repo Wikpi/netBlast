@@ -7,7 +7,10 @@ import (
 
 func GetWDir() {
 	path, err := os.Getwd()
-	HandleError("WorkingDir: couldnt get directory.", err, 1)
+	if err != nil {
+		LogError(err)
+		fmt.Println(BadDir)
+	}
 
 	fmt.Print("Current workind dir: ", path, "\n\n")
 }
