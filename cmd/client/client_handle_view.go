@@ -91,11 +91,11 @@ func (m *model) displayUsers() {
 		style := lipgloss.NewStyle().Foreground(lipgloss.Color(user.UserColor))
 
 		if user.Name == m.user.Name {
-			m.ui.WriteString("\t" + strconv.Itoa(user.Id) + ". " + style.Render(user.Name) + "(You): " + user.Status + "\n")
+			m.ui.WriteString("\t" + strconv.Itoa(user.Id) + ". " + style.Render(user.Name) + "(You): \t" + user.Status + "\n")
 			continue
 		}
 
-		m.ui.WriteString("\t" + strconv.Itoa(user.Id) + ". " + style.Render(user.Name) + ": " + user.Status + "\n")
+		m.ui.WriteString("\t" + strconv.Itoa(user.Id) + ". " + style.Render(user.Name) + ": \t" + user.Status + "\n")
 	}
 
 	m.ui.WriteString("\nPrivate message a user: message [userName] [userMessage]\n")
@@ -145,23 +145,23 @@ func (m *model) logUserMessages() {
 		// Username color styler
 		style := lipgloss.NewStyle().Foreground(lipgloss.Color(msg.Color))
 
-		// Dsiplays new time
-		if currentTime.After(msg.MessageTime) {
-			currentTime = msg.MessageTime
-
-			m.ui.WriteString(currentTime.Format("15:04") + "\n")
-		}
-
 		switch msg.MessageType {
 		case "public":
+			// Dsiplays new time
+			if (currentTime.Hour()*60 + currentTime.Minute()) != (msg.MessageTime.Hour()*60 + msg.MessageTime.Minute()) {
+				currentTime = msg.MessageTime
+
+				m.ui.WriteString(currentTime.Format("15:04") + "\n")
+			}
+
 			m.ui.WriteString(style.Render(msg.Username) + ": " + msg.Message + "\n")
 		case "private":
 			if msg.Receiver != m.user.Name {
 				style := lipgloss.NewStyle().Foreground(lipgloss.Color(msg.ReceiverColor))
-				m.ui.WriteString("PRIVATE MESSAGE to " + style.Render(msg.Receiver) + ": " + msg.Message + "\n")
+				m.ui.WriteString(currentTime.Format("15:04") + " PRIVATE MESSAGE to " + style.Render(msg.Receiver) + ": " + msg.Message + "\n")
 				continue
 			}
-			m.ui.WriteString("PRIVATE MESSAGE from " + style.Render(msg.Username) + ": " + msg.Message + "\n")
+			m.ui.WriteString(currentTime.Format("15:04") + " PRIVATE MESSAGE from " + style.Render(msg.Username) + ": " + msg.Message + "\n")
 		}
 	}
 }

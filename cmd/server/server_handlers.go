@@ -70,6 +70,10 @@ func (s *serverInfo) handleSession(w http.ResponseWriter, r *http.Request) {
 
 	defer c.Close(websocket.StatusInternalError, "")
 
+	s.lock.Lock()
+	s.connections[c] = ""
+	s.lock.Unlock()
+
 	s.readMessage(c)
 }
 
@@ -146,11 +150,12 @@ func (s *serverInfo) readMessage(c *websocket.Conn) {
 
 			s.lock.Lock()
 			database.UpdateDBUserInfo(s.db, "status", "name", "Offline", s.connections[c])
+			s.connections[c] = ""
 			s.lock.Unlock()
 			return
 		}
 
-		if _, ok := s.connections[c]; !ok {
+		if s.connections[c] == "" {
 			s.lock.Lock()
 			s.connections[c] = message.Username
 			database.UpdateDBUserInfo(s.db, "status", "name", "Online", s.connections[c])
@@ -168,7 +173,11 @@ func (s *serverInfo) readMessage(c *websocket.Conn) {
 // Writes user message to all other connections
 func (s *serverInfo) writeToAll(message pkg.Message) {
 	s.lock.RLock()
-	for c, _ := range s.connections {
+	for c, v := range s.connections {
+		if v == "" {
+			continue
+		}
+
 		pkg.WsWrite(c, message, pkg.SvMessage+pkg.BadWrite)
 	}
 	s.lock.RUnlock()
