@@ -6,6 +6,8 @@ import (
 	"netBlast/pkg"
 	"os"
 	"sync"
+
+	"nhooyr.io/websocket"
 )
 
 const (
@@ -20,8 +22,9 @@ const (
 type serverInfo struct {
 	s http.Server
 
-	messages []pkg.Message
-	users    []pkg.User
+	messages    []pkg.Message
+	users       []pkg.User
+	connections map[*websocket.Conn]string
 
 	db       *sql.DB
 	lock     sync.RWMutex

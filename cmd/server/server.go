@@ -7,6 +7,8 @@ import (
 
 	"netBlast/pkg"
 	"netBlast/tools/database"
+
+	"nhooyr.io/websocket"
 )
 
 // Creates server with default parameters
@@ -17,6 +19,8 @@ func newServer(sd chan os.Signal) *serverInfo {
 	serverInfo.mux = http.NewServeMux()
 
 	serverInfo.shutdown = sd
+
+	serverInfo.connections = make(map[*websocket.Conn]string)
 
 	serverInfo.db = database.OpenDB()
 

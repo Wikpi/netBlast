@@ -9,6 +9,7 @@ import (
 	"netBlast/tools/database"
 	"os"
 	"os/signal"
+	"strconv"
 	"time"
 
 	"nhooyr.io/websocket"
@@ -51,7 +52,6 @@ func (s *serverInfo) registerUser(w http.ResponseWriter, r *http.Request) {
 		}
 
 		s.lock.Lock()
-		//s.users = append(s.users, client)
 		database.InsertDBUser(s.db, client)
 		s.lock.Unlock()
 	}
@@ -75,9 +75,26 @@ func (s *serverInfo) handleSession(w http.ResponseWriter, r *http.Request) {
 
 // Sends back the list of users
 func (s *serverInfo) sendUserList(w http.ResponseWriter, r *http.Request) {
-	users := pkg.ParseToJson(s.users, "Server/SendUsers: couldnt parse to json.")
+	users := make(map[int]pkg.User)
 
-	w.Write(users)
+	userCnt, err := strconv.Atoi(database.FindDBUserInfo(s.db, "MAX(id)", "name", "name"))
+	if err != nil {
+		pkg.LogError(err)
+		fmt.Println(err.Error())
+		return
+	}
+
+	for x := 0; x < userCnt; x++ {
+		users[x+1] = pkg.User{
+			Name:      database.FindDBUserInfo(s.db, "name", "id", x+1),
+			UserColor: database.FindDBUserInfo(s.db, "color", "id", x+1),
+			Status:    database.FindDBUserInfo(s.db, "status", "id", x+1),
+		}
+	}
+
+	userList := pkg.ParseToJson(users, "Couldnt parse to json.")
+
+	w.Write(userList)
 }
 
 // Sends direct message to the recipient and the sender
@@ -116,20 +133,18 @@ func (s *serverInfo) readMessage(c *websocket.Conn) {
 	for {
 		message := pkg.WsRead(c, pkg.SvMessage+pkg.BadRead)
 		if (message == pkg.Message{}) {
-			name := database.FindDBUserInfo(s.db, "name", "conn", c)
-
-			fmt.Println("User left the server: ", name)
+			fmt.Println("User left the server: ", s.connections[c])
 
 			s.lock.Lock()
-			database.UpdateDBUserInfo(s.db, name, "status", "Offline")
+			database.UpdateDBUserInfo(s.db, "status", "name", "Offline", s.connections[c])
 			s.lock.Unlock()
-			//s.users = append(s.users[:userIdx], s.users[userIdx+1:]...)
 			return
 		}
 
-		if !database.CheckDBUserConn(s.db, message.Username) {
+		if _, ok := s.connections[c]; !ok {
 			s.lock.Lock()
-			database.UpdateDBUserInfo(s.db, message.Username, "conn", c)
+			s.connections[c] = message.Username
+			database.UpdateDBUserInfo(s.db, "status", "name", "Online", s.connections[c])
 			s.lock.Unlock()
 		}
 
@@ -144,8 +159,8 @@ func (s *serverInfo) readMessage(c *websocket.Conn) {
 // Writes user message to all other connections
 func (s *serverInfo) writeToAll(message pkg.Message) {
 	s.lock.RLock()
-	for _, ic := range s.users {
-		pkg.WsWrite(ic.Conn, message, pkg.SvMessage+pkg.BadWrite)
+	for c, _ := range s.connections {
+		pkg.WsWrite(c, message, pkg.SvMessage+pkg.BadWrite)
 	}
 	s.lock.RUnlock()
 }
